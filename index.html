@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0c0f1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>VOID</title>
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiVk9JRCBUcmFja2VyIiwic2hvcnRfbmFtZSI6IlZPSUQiLCJzdGFydF91cmwiOiIuIiwiZGlzcGxheSI6InN0YW5kYWxvbmUiLCJiYWNrZ3JvdW5kX2NvbG9yIjoiIzBjMGYxYSIsInRoZW1lX2NvbG9yIjoiIzBjMGYxYSIsImRlc2NyaXB0aW9uIjoiQmxhZGRlciByZXRyYWluaW5nIHRyYWNrZXIifQ==">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0c0f1a;--bg2:#111827;--card:#1e293b;--border:#334155;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--text4:#475569;
+  --accent:#6366f1;--accent2:#818cf8;--green:#4ade80;--green2:#22c55e;
+  --amber:#f59e0b;--amber2:#d97706;--red:#f87171;--red2:#dc2626;
+  --blue:#3b82f6;--cyan:#06b6d4;
+}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  display:flex;flex-direction:column;
+}
+.app{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 16px 100px;-webkit-overflow-scrolling:touch}
+
+/* ── Nav ── */
+.nav{
+  position:fixed;bottom:0;left:0;right:0;
+  display:flex;background:#0a0d17;border-top:1px solid var(--border);
+  padding:6px 0 env(safe-area-inset-bottom,8px);z-index:100;
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;border:none;color:var(--text3);font-size:10px;
+  font-weight:600;padding:8px 0;cursor:pointer;font-family:inherit;
+  letter-spacing:.04em;transition:color .2s;
+}
+.nav-btn.active{color:var(--accent)}
+.nav-btn svg{width:22px;height:22px}
+
+/* ── Timer ── */
+.timer-wrap{display:flex;justify-content:center;margin:4px 0 16px}
+.ring-box{position:relative;width:180px;height:180px}
+.ring-box svg{width:100%;height:100%}
+.timer-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.timer-label{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--text3);text-transform:uppercase}
+.timer-val{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;margin:2px 0}
+.timer-goal{font-size:10px;color:var(--text4)}
+
+/* ── Sections ── */
+.section{margin-bottom:14px}
+.section-label{font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;margin-bottom:6px}
+
+/* ── Urgency ── */
+.urg-row{display:flex;gap:8px}
+.urg-btn{
+  flex:1;padding:10px 0;border-radius:10px;border:1.5px solid var(--border);
+  background:transparent;font-size:13px;font-weight:600;cursor:pointer;
+  font-family:inherit;transition:all .15s;color:var(--text2);
+}
+.urg-btn.sel-0{border-color:var(--green);background:#4ade8018;color:var(--green)}
+.urg-btn.sel-1{border-color:var(--amber);background:#fbbf2418;color:var(--amber)}
+.urg-btn.sel-2{border-color:var(--red);background:#f8717118;color:var(--red)}
+
+/* ── Location ── */
+.loc-row{display:flex;gap:8px}
+.loc-btn{
+  flex:1;padding:10px 0;border-radius:10px;border:1.5px solid var(--border);
+  background:transparent;font-size:13px;font-weight:600;cursor:pointer;
+  font-family:inherit;transition:all .15s;color:var(--text2);text-align:center;
+}
+.loc-btn.active{border-color:var(--accent);background:#6366f118;color:var(--accent2)}
+
+/* ── Tags ── */
+.tag-row{display:flex;flex-wrap:wrap;gap:6px}
+.tag-pill{
+  padding:7px 11px;border-radius:20px;border:1.5px solid var(--border);
+  background:transparent;color:var(--text2);font-size:12px;font-weight:500;
+  cursor:pointer;font-family:inherit;transition:all .15s;
+}
+.tag-pill.active{border-color:var(--accent);background:#6366f118;color:var(--accent2)}
+
+/* ── Inputs ── */
+.vol-input,.note-input{
+  width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);
+  background:#0f172a;color:var(--text);font-size:14px;font-family:inherit;outline:none;
+}
+.note-input{font-size:13px;resize:none;min-height:38px}
+.vol-input:focus,.note-input:focus{border-color:var(--accent)}
+
+/* ── Log button ── */
+.log-btn{
+  width:100%;padding:16px 0;border-radius:14px;border:none;color:#fff;
+  font-size:16px;font-weight:700;letter-spacing:.05em;cursor:pointer;
+  font-family:inherit;transition:all .2s;
+}
+.log-btn.ready{background:linear-gradient(135deg,#6366f1,#8b5cf6)}
+.log-btn.early{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.log-btn.done{background:linear-gradient(135deg,#4ade80,#22c55e);transform:scale(.96)}
+.early-warn{text-align:center;font-size:12px;color:var(--amber);margin-top:6px}
+
+/* ── Water ── */
+.water-bar-bg{
+  position:relative;height:30px;border-radius:15px;
+  background:#0f172a;overflow:hidden;margin-bottom:8px;
+}
+.water-bar-fill{
+  position:absolute;top:0;left:0;height:100%;border-radius:15px;
+  background:linear-gradient(90deg,var(--blue),var(--cyan));
+  transition:width .5s;
+}
+.water-bar-fill.goal-hit{background:linear-gradient(90deg,var(--green2),var(--green))}
+.water-bar-text{
+  position:relative;z-index:1;display:flex;align-items:center;justify-content:center;
+  height:100%;font-size:12px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);
+}
+.water-btns{display:flex;gap:8px}
+.water-btn{
+  flex:1;padding:10px;border-radius:10px;border:1.5px solid #3b82f644;
+  background:transparent;color:#60a5fa;font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:all .15s;
+}
+.water-btn:active{background:#3b82f622}
+.water-btn.undo{flex:0 0 50px;border-color:var(--border);color:var(--text3)}
+
+/* ── Stats ── */
+.stats-row{display:flex;gap:8px;margin-bottom:12px}
+.stat-box{flex:1;background:var(--card);border-radius:12px;padding:12px 6px;text-align:center}
+.stat-val{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat-lbl{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
+
+/* ── Tip ── */
+.tip-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-top:14px}
+.tip-title{font-size:13px;font-weight:700;color:var(--amber);margin-bottom:4px}
+.tip-text{font-size:12px;color:var(--text2);line-height:1.5}
+
+/* ── Cards ── */
+.card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:10px}
+.card-title{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+
+/* ── Charts ── */
+.chart{display:flex;align-items:flex-end;gap:4px;min-height:120px;padding-top:16px}
+.chart-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.chart-val{font-size:8px;color:var(--text3);font-variant-numeric:tabular-nums}
+.chart-bar{width:100%;max-width:26px;border-radius:3px;transition:height .3s;min-height:3px}
+.chart-lbl{font-size:8px;color:var(--text4)}
+
+/* ── Hour heatmap ── */
+.hour-grid{display:flex;flex-wrap:wrap;gap:3px}
+.hour-cell{width:calc(25% - 3px);padding:6px 4px;border-radius:6px;text-align:center;font-size:9px;font-weight:600}
+.hour-cell .hc-time{color:var(--text3);font-size:8px}
+.hour-cell .hc-val{margin-top:1px}
+
+/* ── Comparison ── */
+.cmp-row{display:flex;gap:12px}
+.cmp-col{flex:1;text-align:center}
+.cmp-val{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.cmp-sub{font-size:10px;color:var(--text3);text-transform:uppercase;margin-top:2px}
+.cmp-delta{font-size:11px;font-weight:600;margin-top:4px}
+.cmp-delta.up{color:var(--green)}.cmp-delta.down{color:var(--red)}.cmp-delta.flat{color:var(--text3)}
+
+/* ── Streak ── */
+.streak-bar{display:flex;gap:3px;margin-top:8px}
+.streak-dot{width:100%;height:8px;border-radius:4px;background:var(--border)}
+.streak-dot.hit{background:var(--green)}
+.streak-dot.miss{background:#f8717144}
+
+/* ── Milestones ── */
+.ms-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ms-item{text-align:center;padding:10px 4px;border-radius:10px;background:#0f172a;border:1px solid var(--border)}
+.ms-item.unlocked{border-color:var(--accent);background:#6366f10a}
+.ms-item.locked{opacity:.35}
+.ms-icon{font-size:22px}.ms-name{font-size:9px;font-weight:700;color:var(--text);margin-top:2px}
+.ms-desc{font-size:8px;color:var(--text3);margin-top:1px}
+
+/* ── Log entry ── */
+.log-entry{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 12px;background:var(--card);border-radius:10px;margin-bottom:5px;
+}
+.log-time{font-size:13px;font-weight:600}
+.log-details{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.log-detail{font-size:11px}
+.del-btn{background:none;border:none;color:var(--text4);font-size:20px;cursor:pointer;padding:0 4px}
+
+/* ── Settings ── */
+.setting-row{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:8px}
+.adj-btn{
+  width:52px;height:44px;border-radius:10px;border:1.5px solid var(--border);
+  background:var(--card);color:var(--text);font-size:14px;font-weight:700;
+  cursor:pointer;font-family:inherit;
+}
+.setting-val{font-size:28px;font-weight:700;min-width:80px;text-align:center;font-variant-numeric:tabular-nums}
+.phase-row{display:flex;gap:8px;margin-bottom:8px}
+.phase-btn{
+  flex:1;padding:10px 0;border-radius:10px;border:1.5px solid var(--border);
+  font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;
+  background:transparent;color:var(--text2);transition:all .15s;
+}
+.phase-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.phase-desc{font-size:12px;color:var(--text2);text-align:center;line-height:1.5;margin-bottom:16px}
+.action-btn{
+  width:100%;padding:14px 0;border-radius:10px;border:1.5px solid;
+  background:transparent;font-size:13px;font-weight:600;cursor:pointer;
+  font-family:inherit;margin-bottom:8px;
+}
+
+/* ── Info cards ── */
+.info-card{background:var(--card);border-radius:12px;padding:16px;margin-bottom:10px;border-left:3px solid var(--accent)}
+.info-title{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:6px}
+.info-text{font-size:13px;color:var(--text2);line-height:1.6}
+
+/* ── Header ── */
+.header{margin-bottom:14px}
+.title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.title{font-size:26px;font-weight:800;letter-spacing:.15em}
+.phase-tag{
+  font-size:10px;font-weight:600;letter-spacing:.08em;color:var(--accent);
+  border:1px solid #6366f133;border-radius:20px;padding:4px 12px;text-transform:uppercase;
+}
+.back-btn{background:none;border:none;color:var(--accent);font-size:14px;font-weight:500;cursor:pointer;padding:0;margin-bottom:8px;font-family:inherit}
+.subtitle{font-size:20px;font-weight:700}
+.empty{text-align:center;color:var(--text4);font-size:13px;padding:20px}
+.scroll-stats{padding-bottom:20px}
+
+/* ── Wave Rider FAB ── */
+.wave-fab{
+  position:fixed;bottom:calc(68px + env(safe-area-inset-bottom,8px));right:16px;z-index:99;
+  width:52px;height:52px;border-radius:26px;
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  border:none;color:#fff;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;box-shadow:0 4px 24px #6366f160;
+  animation:fabPulse 3s ease-in-out infinite;
+}
+@keyframes fabPulse{
+  0%,100%{box-shadow:0 4px 20px #6366f140}
+  50%{box-shadow:0 4px 32px #6366f180}
+}
+
+/* ── Wave Rider Overlay ── */
+.wave-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:radial-gradient(ellipse at 50% 40%,#111827,#070a14);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .4s;
+}
+.wave-overlay.active{opacity:1;pointer-events:all}
+.wave-active{
+  display:flex;flex-direction:column;align-items:center;
+  width:100%;height:100%;padding:20px;position:relative;
+}
+.wave-close{
+  position:absolute;top:16px;right:16px;background:none;border:none;
+  color:var(--text3);font-size:28px;cursor:pointer;padding:8px;z-index:1;
+}
+.wave-timer-wrap{position:relative;width:80px;height:80px;margin-top:40px}
+.wave-timer-wrap svg{width:100%;height:100%}
+.wave-timer-text{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:16px;font-weight:700;color:var(--text2);font-variant-numeric:tabular-nums;
+}
+.wave-circle-wrap{flex:1;display:flex;align-items:center;justify-content:center}
+.wave-circle{
+  width:140px;height:140px;border-radius:50%;
+  background:radial-gradient(circle,#818cf8,#6366f1,#4f46e5);
+  box-shadow:0 0 80px #6366f140;
+  will-change:transform;
+}
+.wave-phase{font-size:22px;font-weight:300;color:var(--text);letter-spacing:.03em;margin-bottom:24px}
+.wave-squeeze{margin-bottom:16px}
+.wave-squeeze-btn{
+  padding:14px 36px;border-radius:40px;background:transparent;
+  border:2px solid #6366f144;color:var(--accent2);font-size:15px;
+  font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;
+}
+.wave-squeeze-btn:active{background:#6366f122;transform:scale(.95)}
+.wave-early-btn{
+  background:none;border:none;color:var(--text4);font-size:13px;
+  cursor:pointer;padding:12px 20px;font-family:inherit;margin-bottom:40px;
+}
+.wave-done{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;text-align:center;padding:40px;
+}
+.wave-done-icon{font-size:64px;margin-bottom:16px}
+.wave-done-title{font-size:28px;font-weight:700;color:var(--green)}
+.wave-done-sub{font-size:14px;color:var(--text2);margin-top:8px}
+.wave-done-btn{
+  margin-top:32px;padding:16px 48px;border-radius:14px;
+  background:var(--green);border:none;color:#000;
+  font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;
+}
+
+/* ── Toast ── */
+.toast{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);
+  background:var(--card);border:1px solid var(--accent);border-radius:12px;
+  padding:12px 20px;font-size:14px;font-weight:600;color:var(--text);
+  z-index:300;transition:transform .4s cubic-bezier(.22,1,.36,1);
+  box-shadow:0 8px 30px rgba(0,0,0,.5);white-space:nowrap;
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<nav class="nav" id="nav"></nav>
+
+<!-- Wave Rider FAB -->
+<button class="wave-fab" id="wave-fab" onclick="openWaveRider()">
+  <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+    <path d="M2 12c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/>
+    <path d="M2 17c2-3 4-3 6 0s4 3 6 0 4-3 6 0" opacity=".5"/>
+  </svg>
+</button>
+
+<!-- Wave Rider Overlay -->
+<div class="wave-overlay" id="wave-overlay">
+  <div class="wave-active" id="wave-active">
+    <button class="wave-close" onclick="closeWaveRider()">&times;</button>
+    <div class="wave-timer-wrap">
+      <svg viewBox="0 0 160 160">
+        <circle cx="80" cy="80" r="70" fill="none" stroke="#1e293b" stroke-width="5"/>
+        <circle id="wave-ring" cx="80" cy="80" r="70" fill="none" stroke="var(--accent)"
+          stroke-width="5" stroke-linecap="round"
+          stroke-dasharray="439.82" stroke-dashoffset="439.82"
+          transform="rotate(-90 80 80)"/>
+      </svg>
+      <div class="wave-timer-text" id="wave-timer">60s</div>
+    </div>
+    <div class="wave-circle-wrap">
+      <div class="wave-circle" id="wave-circle"></div>
+    </div>
+    <div class="wave-phase" id="wave-text">Breathe in...</div>
+    <div class="wave-squeeze">
+      <button class="wave-squeeze-btn" onclick="addSqueeze()">Squeeze <span id="squeeze-count">0</span></button>
+    </div>
+    <button class="wave-early-btn" onclick="earlyComplete()">Wave passed</button>
+  </div>
+  <div class="wave-done" id="wave-done" style="display:none">
+    <div class="wave-done-icon">🌊</div>
+    <div class="wave-done-title">Wave passed</div>
+    <div class="wave-done-sub" id="wave-done-sub"></div>
+    <button class="wave-done-btn" onclick="closeWaveRider()">Done</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// STATE & CONSTANTS
+// ══════════════════════════════════════════════
+const STORAGE_KEY = 'void-tracker-data';
+const TAGS = ['coffee','stress','cold','exercise','alcohol','meds'];
+const TAG_ICONS = {coffee:'\u2615',stress:'\ud83d\ude30',cold:'\ud83e\udd76',exercise:'\ud83c\udfc3',alcohol:'\ud83c\udf7a',meds:'\ud83d\udc8a'};
+const urgLabels = ['Low','Med','High'];
+const urgColors = ['var(--green)','var(--amber)','var(--red)'];
+
+let data = { logs:[], goalMinutes:60, phase:1, waterLogs:[], waves:[], milestones:{}, waterGoalMl:2000 };
+let currentView = 'log';
+let selectedUrgency = null;
+let selectedLocation = null;
+let selectedTags = [];
+let volumeInput = '';
+let noteInput = '';
+let justLogged = false;
+let timerInterval = null;
+
+// Wave Rider state
+let waveActive = false;
+let waveStartTS = null;
+let waveRAF = null;
+let waveSqueezes = 0;
+
+// ══════════════════════════════════════════════
+// PERSISTENCE
+// ══════════════════════════════════════════════
+function save() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e){} }
+
+function load() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) data = migrate(JSON.parse(s));
+  } catch(e){}
+  // Restore last location
+  try { selectedLocation = localStorage.getItem('void-last-loc') || null; } catch(e){}
+}
+
+function migrate(d) {
+  if (!d.waterLogs) d.waterLogs = [];
+  if (!d.waves) d.waves = [];
+  if (!d.milestones) d.milestones = {};
+  if (!d.waterGoalMl) d.waterGoalMl = 2000;
+  d.logs.forEach(l => {
+    if (!l.tags) l.tags = [];
+    if (l.location === undefined) l.location = null;
+  });
+  return d;
+}
+
+// ══════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════
+function fmtDur(ms) {
+  if (!ms || ms < 0) ms = 0;
+  const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  if (h > 0) return h+'h '+String(m).padStart(2,'0')+'m';
+  return m+'m '+String(sec).padStart(2,'0')+'s';
+}
+function fmtDurShort(ms) {
+  if (!ms) return '\u2014';
+  const s = Math.floor(ms/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+  if (h > 0) return h+'h '+m+'m';
+  return m+'m';
+}
+function fmtTime(ts) { return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function fmtDate(ts) { return new Date(ts).toLocaleDateString([],{month:'short',day:'numeric'}); }
+function fmtDateFull(ts) { return new Date(ts).toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'}); }
+function dayKey(ts) { return new Date(ts).toISOString().slice(0,10); }
+function weekKey(ts) {
+  const d = new Date(ts), day = d.getDay();
+  const mon = new Date(d); mon.setDate(d.getDate() - ((day+6)%7));
+  return mon.toISOString().slice(0,10);
+}
+const today = () => dayKey(Date.now());
+
+function haptic(style) {
+  try {
+    if (typeof Capacitor !== 'undefined' && Capacitor.Plugins && Capacitor.Plugins.Haptics) {
+      Capacitor.Plugins.Haptics.impact({ style: style || 'LIGHT' });
+    } else if (navigator.vibrate) {
+      navigator.vibrate(style === 'HEAVY' ? 50 : 15);
+    }
+  } catch(e){}
+}
+
+// ── Data access ──
+function getLogsForDay(dk) { return data.logs.filter(l => dayKey(l.timestamp) === dk); }
+
+function getDailyStats(n) {
+  const days = {};
+  data.logs.forEach(l => {
+    const dk = dayKey(l.timestamp);
+    if (!days[dk]) days[dk] = {intervals:[],count:0,volumes:[],urgencies:[]};
+    days[dk].count++;
+    if (l.intervalMs) days[dk].intervals.push(l.intervalMs);
+    if (l.volume) days[dk].volumes.push(l.volume);
+    if (l.urgency !== null && l.urgency !== undefined) days[dk].urgencies.push(l.urgency);
+  });
+  return Object.entries(days).sort(([a],[b])=>a.localeCompare(b)).slice(-n).map(([date,s])=>({
+    date,
+    avgInterval: s.intervals.length ? s.intervals.reduce((a,b)=>a+b,0)/s.intervals.length : 0,
+    count: s.count,
+    avgVol: s.volumes.length ? Math.round(s.volumes.reduce((a,b)=>a+b,0)/s.volumes.length) : null,
+  }));
+}
+
+function getWeeklyStats(n) {
+  const weeks = {};
+  data.logs.forEach(l => {
+    const wk = weekKey(l.timestamp);
+    if (!weeks[wk]) weeks[wk] = {intervals:[],count:0,volumes:[],days:new Set()};
+    weeks[wk].count++;
+    weeks[wk].days.add(dayKey(l.timestamp));
+    if (l.intervalMs) weeks[wk].intervals.push(l.intervalMs);
+    if (l.volume) weeks[wk].volumes.push(l.volume);
+  });
+  return Object.entries(weeks).sort(([a],[b])=>a.localeCompare(b)).slice(-n).map(([wk,s])=>({
+    week:wk,
+    avgInterval: s.intervals.length ? s.intervals.reduce((a,b)=>a+b,0)/s.intervals.length : 0,
+    count:s.count,
+    avgPerDay: s.days.size ? Math.round(s.count/s.days.size*10)/10 : 0,
+    avgVol: s.volumes.length ? Math.round(s.volumes.reduce((a,b)=>a+b,0)/s.volumes.length) : null,
+  }));
+}
+
+function getHourDistribution() {
+  const hours = Array(24).fill(0);
+  data.logs.forEach(l => hours[new Date(l.timestamp).getHours()]++);
+  return hours;
+}
+
+function getStreak() {
+  const goalMs = data.goalMinutes * 60000;
+  const daily = getDailyStats(60);
+  let streak = 0;
+  for (let i = daily.length - 1; i >= 0; i--) {
+    if (daily[i].avgInterval >= goalMs) streak++; else break;
+  }
+  return streak;
+}
+
+function getLast7DaysMet() {
+  const goalMs = data.goalMinutes * 60000;
+  const result = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const dk = dayKey(d.getTime());
+    const logs = getLogsForDay(dk);
+    const intervals = logs.filter(l => l.intervalMs).map(l => l.intervalMs);
+    const avg = intervals.length ? intervals.reduce((a,b)=>a+b,0)/intervals.length : 0;
+    result.push({date:dk, met:intervals.length > 0 && avg >= goalMs, hasData:logs.length > 0});
+  }
+  return result;
+}
+
+function getAllTimeStats() {
+  const intervals = data.logs.filter(l => l.intervalMs).map(l => l.intervalMs);
+  const volumes = data.logs.filter(l => l.volume).map(l => l.volume);
+  return {
+    totalLogs: data.logs.length,
+    avgInterval: intervals.length ? intervals.reduce((a,b)=>a+b,0)/intervals.length : 0,
+    maxInterval: intervals.length ? Math.max(...intervals) : 0,
+    maxVolume: volumes.length ? Math.max(...volumes) : null,
+    totalDays: new Set(data.logs.map(l => dayKey(l.timestamp))).size,
+  };
+}
+
+function getTodayWater() {
+  const dk = today();
+  return data.waterLogs.filter(w => dayKey(w.timestamp) === dk).reduce((s,w) => s + w.amount, 0);
+}
+
+function getWaterDailyAvg() {
+  const days = {};
+  data.waterLogs.forEach(w => { const dk = dayKey(w.timestamp); days[dk] = (days[dk]||0) + w.amount; });
+  const vals = Object.values(days);
+  return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+}
+
+function getWaterGoalDays() {
+  const days = {};
+  data.waterLogs.forEach(w => { const dk = dayKey(w.timestamp); days[dk] = (days[dk]||0) + w.amount; });
+  return Object.values(days).filter(v => v >= data.waterGoalMl).length;
+}
+
+function getTagAnalysis() {
+  const tagged = data.logs.filter(l => l.tags && l.tags.length > 0);
+  if (tagged.length < 10) return null;
+  const results = {};
+  TAGS.forEach(tag => {
+    const withT = data.logs.filter(l => l.tags && l.tags.includes(tag) && l.urgency !== null && l.urgency !== undefined);
+    const withoutT = data.logs.filter(l => (!l.tags || !l.tags.includes(tag)) && l.urgency !== null && l.urgency !== undefined);
+    if (withT.length < 3 || withoutT.length < 3) return;
+    results[tag] = {
+      avgWith: withT.reduce((s,l)=>s+l.urgency,0)/withT.length,
+      avgWithout: withoutT.reduce((s,l)=>s+l.urgency,0)/withoutT.length,
+      count: withT.length,
+    };
+  });
+  return Object.keys(results).length ? results : null;
+}
+
+function getLocationComparison() {
+  const home = data.logs.filter(l => l.location === 'home' && l.intervalMs);
+  const out = data.logs.filter(l => l.location === 'out' && l.intervalMs);
+  if (home.length < 3 || out.length < 3) return null;
+  return {
+    homeAvg: home.reduce((s,l)=>s+l.intervalMs,0)/home.length,
+    outAvg: out.reduce((s,l)=>s+l.intervalMs,0)/out.length,
+    homeCount: home.length, outCount: out.length,
+  };
+}
+
+// ══════════════════════════════════════════════
+// MILESTONES
+// ══════════════════════════════════════════════
+const MILESTONES = [
+  {id:'first_log',name:'First Step',desc:'Log your first void',icon:'\ud83c\udfaf',check:(d,s)=>d.logs.length>=1},
+  {id:'logs_10',name:'Getting Started',desc:'Log 10 voids',icon:'\ud83d\udcdd',check:(d,s)=>d.logs.length>=10},
+  {id:'logs_50',name:'Dedicated',desc:'Log 50 voids',icon:'\ud83d\udccb',check:(d,s)=>d.logs.length>=50},
+  {id:'logs_100',name:'Centurion',desc:'Log 100 voids',icon:'\ud83d\udcaf',check:(d,s)=>d.logs.length>=100},
+  {id:'day_3',name:'3 Day Streak',desc:'Track 3 days',icon:'\ud83d\udcc5',check:(d,s)=>s.totalDays>=3},
+  {id:'day_7',name:'Week Warrior',desc:'Track 7 days',icon:'\ud83d\uddd3',check:(d,s)=>s.totalDays>=7},
+  {id:'day_30',name:'Monthly Master',desc:'Track 30 days',icon:'\ud83c\udfc6',check:(d,s)=>s.totalDays>=30},
+  {id:'hold_60',name:'Hour Hold',desc:'Hold 60+ minutes',icon:'\u23f1',check:(d,s)=>s.maxInterval>=3600000},
+  {id:'hold_90',name:'90 Min Mark',desc:'Hold 90+ minutes',icon:'\ud83d\udcaa',check:(d,s)=>s.maxInterval>=5400000},
+  {id:'hold_120',name:'Two Hours',desc:'Hold 2+ hours',icon:'\ud83e\uddb8',check:(d,s)=>s.maxInterval>=7200000},
+  {id:'hold_180',name:'Three Hours',desc:'Hold 3+ hours',icon:'\ud83d\udc51',check:(d,s)=>s.maxInterval>=10800000},
+  {id:'vol_300',name:'300ml Club',desc:'Log 300ml+ volume',icon:'\ud83e\udd49',check:(d,s)=>(s.maxVolume||0)>=300},
+  {id:'vol_400',name:'400ml Achiever',desc:'Log 400ml+ volume',icon:'\ud83e\udd48',check:(d,s)=>(s.maxVolume||0)>=400},
+  {id:'vol_500',name:'Half Liter Hero',desc:'Reach 500ml!',icon:'\ud83e\udd47',check:(d,s)=>(s.maxVolume||0)>=500},
+  {id:'wave_1',name:'Wave Rider',desc:'Survive 1 wave',icon:'\ud83c\udf0a',check:(d,s)=>d.waves.length>=1},
+  {id:'wave_10',name:'Storm Surfer',desc:'Survive 10 waves',icon:'\ud83c\udfc4',check:(d,s)=>d.waves.length>=10},
+  {id:'wave_50',name:'Ocean Master',desc:'Survive 50 waves',icon:'\ud83d\udd31',check:(d,s)=>d.waves.length>=50},
+  {id:'water_hit',name:'Hydrated',desc:'Hit water goal',icon:'\ud83d\udca7',check:(d,s)=>getTodayWater()>=d.waterGoalMl},
+  {id:'out_1',name:'Ventured Out',desc:'First log while out',icon:'\ud83d\udeaa',check:(d,s)=>d.logs.some(l=>l.location==='out')},
+  {id:'phase_4',name:'Freedom',desc:'Reach Phase 4',icon:'\ud83d\udd4a',check:(d,s)=>d.phase>=4},
+];
+
+function checkMilestones() {
+  const stats = getAllTimeStats();
+  const newOnes = [];
+  MILESTONES.forEach(m => {
+    if (!data.milestones[m.id] && m.check(data, stats)) {
+      data.milestones[m.id] = Date.now();
+      newOnes.push(m);
+    }
+  });
+  if (newOnes.length) {
+    save();
+    newOnes.forEach((m, i) => setTimeout(() => showToast(m.icon + ' ' + m.name + ' unlocked!'), i * 800));
+  }
+}
+
+// ══════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ══════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════
+function render() {
+  const app = document.getElementById('app');
+  const nav = document.getElementById('nav');
+
+  nav.innerHTML = [
+    {id:'log',icon:'<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',label:'Log'},
+    {id:'stats',icon:'<path d="M4 20h16M4 20V8m4 12V12m4 8V6m4 14v-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',label:'Stats'},
+    {id:'history',icon:'<path d="M3 6h18M3 12h18M3 18h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',label:'History'},
+    {id:'settings',icon:'<circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1v4m0 14v4M4.22 4.22l2.83 2.83m9.9 9.9l2.83 2.83M1 12h4m14 0h4M4.22 19.78l2.83-2.83m9.9-9.9l2.83-2.83" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',label:'Settings'},
+  ].map(t => '<button class="nav-btn '+(currentView===t.id?'active':'')+'" onclick="switchView(\''+t.id+'\')"><svg viewBox="0 0 24 24">'+t.icon+'</svg>'+t.label+'</button>').join('');
+
+  if (currentView === 'log') renderLog(app);
+  else if (currentView === 'stats') renderStats(app);
+  else if (currentView === 'history') renderHistory(app);
+  else if (currentView === 'settings') renderSettings(app);
+  else if (currentView === 'protocol') renderProtocol(app);
+}
+
+function switchView(v) { currentView = v; render(); document.querySelector('.app').scrollTop = 0; }
+
+// Optimized timer update (no full re-render)
+function updateTimer() {
+  const tv = document.getElementById('timer-val');
+  if (!tv) return;
+  const last = data.logs.length ? data.logs[data.logs.length-1] : null;
+  const elapsed = last ? Date.now() - last.timestamp : null;
+  const goalMs = data.goalMinutes * 60000;
+  const progress = elapsed !== null ? Math.min(elapsed / goalMs, 1) : 0;
+  const pastGoal = elapsed !== null && elapsed >= goalMs;
+  const circumference = 2 * Math.PI * 78;
+
+  tv.textContent = elapsed === null ? '\u2014' : fmtDur(elapsed);
+  tv.style.color = pastGoal ? 'var(--green)' : 'var(--text)';
+
+  const ring = document.getElementById('timer-ring');
+  if (ring) {
+    ring.setAttribute('stroke-dashoffset', circumference * (1 - progress));
+    ring.setAttribute('stroke', pastGoal ? 'var(--green)' : 'var(--accent)');
+  }
+  const lbl = document.getElementById('timer-label');
+  if (lbl) lbl.textContent = elapsed === null ? 'First log' : pastGoal ? 'GOAL MET' : 'Holding';
+
+  const btn = document.getElementById('log-main-btn');
+  if (btn && !justLogged) {
+    const early = elapsed !== null && elapsed < goalMs;
+    btn.className = 'log-btn ' + (early ? 'early' : 'ready');
+    btn.textContent = early ? 'LOG (before goal)' : 'LOG VOID';
+  }
+  const warn = document.getElementById('early-warn');
+  if (warn) {
+    if (elapsed !== null && elapsed < goalMs && !justLogged) {
+      warn.textContent = fmtDurShort(goalMs - elapsed) + ' until goal \u2014 try urgency suppression first';
+      warn.style.display = '';
+    } else {
+      warn.style.display = 'none';
+    }
+  }
+}
+
+// ══════════════════════════════════════════════
+// LOG VIEW
+// ══════════════════════════════════════════════
+function renderLog(el) {
+  const last = data.logs.length ? data.logs[data.logs.length-1] : null;
+  const elapsed = last ? Date.now() - last.timestamp : null;
+  const goalMs = data.goalMinutes * 60000;
+  const progress = elapsed !== null ? Math.min(elapsed / goalMs, 1) : 0;
+  const pastGoal = elapsed !== null && elapsed >= goalMs;
+  const circumference = 2 * Math.PI * 78;
+  const offset = circumference * (1 - progress);
+  const strokeColor = pastGoal ? 'var(--green)' : 'var(--accent)';
+  const timerColor = pastGoal ? 'var(--green)' : 'var(--text)';
+  const label = elapsed === null ? 'First log' : pastGoal ? 'GOAL MET' : 'Holding';
+  const timerVal = elapsed === null ? '\u2014' : fmtDur(elapsed);
+
+  const todayLogs = getLogsForDay(today());
+  const todayIntervals = todayLogs.filter(l => l.intervalMs);
+  const avgToday = todayIntervals.length ? todayIntervals.reduce((s,l)=>s+l.intervalMs,0)/todayIntervals.length : null;
+
+  const btnClass = justLogged ? 'done' : (elapsed !== null && elapsed < goalMs) ? 'early' : 'ready';
+  const btnText = justLogged ? 'LOGGED \u2713' : (elapsed !== null && elapsed < goalMs) ? 'LOG (before goal)' : 'LOG VOID';
+
+  const todayWater = getTodayWater();
+  const waterPct = Math.min(todayWater / data.waterGoalMl * 100, 100);
+  const waterGoalHit = todayWater >= data.waterGoalMl;
+
+  el.innerHTML = `
+    <div class="header">
+      <div class="title-row">
+        <div class="title">VOID</div>
+        <div class="phase-tag">Phase ${data.phase}</div>
+      </div>
+    </div>
+    <div class="timer-wrap">
+      <div class="ring-box">
+        <svg viewBox="0 0 180 180">
+          <circle cx="90" cy="90" r="78" fill="none" stroke="var(--card)" stroke-width="6"/>
+          <circle id="timer-ring" cx="90" cy="90" r="78" fill="none" stroke="${strokeColor}" stroke-width="6"
+            stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
+            transform="rotate(-90 90 90)" style="transition:stroke-dashoffset 1s,stroke .5s"/>
+        </svg>
+        <div class="timer-center">
+          <div class="timer-label" id="timer-label">${label}</div>
+          <div class="timer-val" id="timer-val" style="color:${timerColor}">${timerVal}</div>
+          <div class="timer-goal">Goal: ${data.goalMinutes}min</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Location</div>
+      <div class="loc-row">
+        <button class="loc-btn ${selectedLocation==='home'?'active':''}" onclick="setLoc('home')">\ud83c\udfe0 Home</button>
+        <button class="loc-btn ${selectedLocation==='out'?'active':''}" onclick="setLoc('out')">\ud83d\udeb6 Out</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Urgency</div>
+      <div class="urg-row">
+        ${urgLabels.map((l,i) => '<button class="urg-btn '+(selectedUrgency===i?'sel-'+i:'')+'" onclick="pickUrg('+i+')">'+l+'</button>').join('')}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Tags</div>
+      <div class="tag-row">
+        ${TAGS.map(t => '<button class="tag-pill '+(selectedTags.includes(t)?'active':'')+'" onclick="toggleTag(\''+t+'\')">'+(TAG_ICONS[t]||'')+' '+t+'</button>').join('')}
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Volume ml (optional)</div>
+      <input class="vol-input" id="vol-input" type="number" inputmode="numeric" placeholder="e.g. 250" value="${volumeInput}" oninput="volumeInput=this.value"/>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Note (optional)</div>
+      <input class="note-input" id="note-input" type="text" placeholder="e.g. coffee, stressed..." value="${noteInput}" oninput="noteInput=this.value"/>
+    </div>
+
+    <button class="log-btn ${btnClass}" id="log-main-btn" onclick="doLog()">${btnText}</button>
+    <div class="early-warn" id="early-warn" style="display:${elapsed !== null && elapsed < goalMs && !justLogged ? '' : 'none'}">
+      ${elapsed !== null && elapsed < goalMs ? fmtDurShort(goalMs - elapsed)+' until goal \u2014 try urgency suppression first' : ''}
+    </div>
+
+    <div class="stats-row" style="margin-top:14px">
+      <div class="stat-box"><div class="stat-val">${todayLogs.length}</div><div class="stat-lbl">Today</div></div>
+      <div class="stat-box"><div class="stat-val">${avgToday ? fmtDurShort(avgToday) : '\u2014'}</div><div class="stat-lbl">Avg interval</div></div>
+      <div class="stat-box"><div class="stat-val">${data.logs.length}</div><div class="stat-lbl">Total</div></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">\ud83d\udca7 Water today</div>
+      <div class="water-bar-bg">
+        <div class="water-bar-fill ${waterGoalHit?'goal-hit':''}" style="width:${waterPct}%"></div>
+        <div class="water-bar-text">${todayWater}ml / ${data.waterGoalMl}ml</div>
+      </div>
+      <div class="water-btns">
+        <button class="water-btn" onclick="addWater(250)">+250ml</button>
+        <button class="water-btn" onclick="addWater(500)">+500ml</button>
+        <button class="water-btn undo" onclick="undoWater()">\u21a9</button>
+      </div>
+    </div>
+
+    <div class="tip-box">
+      <div class="tip-title">Urgency wave?</div>
+      <div class="tip-text">Tap the \ud83c\udf0a button. Or: Stop. Breathe. 5 quick pelvic floor squeezes. The wave passes in 30\u201360 seconds.</div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════
+// STATS VIEW
+// ══════════════════════════════════════════════
+function renderStats(el) {
+  const allTime = getAllTimeStats();
+  const daily14 = getDailyStats(14);
+  const weeklyAll = getWeeklyStats(12);
+  const hours = getHourDistribution();
+  const maxHour = Math.max(...hours, 1);
+  const streak = getStreak();
+  const last7 = getLast7DaysMet();
+  const goalMs = data.goalMinutes * 60000;
+
+  const thisWK = weekKey(Date.now());
+  const lastWKDate = new Date(); lastWKDate.setDate(lastWKDate.getDate() - 7);
+  const lastWK = weekKey(lastWKDate.getTime());
+  const thisW = weeklyAll.find(w => w.week === thisWK);
+  const lastW = weeklyAll.find(w => w.week === lastWK);
+
+  const maxInt14 = daily14.length ? Math.max(...daily14.map(d=>d.avgInterval),1) : 1;
+  const maxCnt14 = daily14.length ? Math.max(...daily14.map(d=>d.count),1) : 1;
+
+  const h = [];
+  h.push('<div class="scroll-stats">');
+  h.push('<div class="header"><div class="subtitle">Statistics</div></div>');
+
+  // All Time
+  h.push(`<div class="card"><div class="card-title">\ud83d\udcca All Time</div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-val">${allTime.totalLogs}</div><div class="stat-lbl">Total voids</div></div>
+      <div class="stat-box"><div class="stat-val">${allTime.totalDays}</div><div class="stat-lbl">Days tracked</div></div>
+      <div class="stat-box"><div class="stat-val">${allTime.totalDays ? Math.round(allTime.totalLogs/allTime.totalDays*10)/10 : '\u2014'}</div><div class="stat-lbl">Avg/day</div></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-val">${fmtDurShort(allTime.avgInterval)}</div><div class="stat-lbl">Avg interval</div></div>
+      <div class="stat-box"><div class="stat-val">${fmtDurShort(allTime.maxInterval)}</div><div class="stat-lbl">Longest hold</div></div>
+      <div class="stat-box"><div class="stat-val">${allTime.maxVolume ? allTime.maxVolume+'ml' : '\u2014'}</div><div class="stat-lbl">Max volume</div></div>
+    </div>
+  </div>`);
+
+  // Streak
+  h.push(`<div class="card"><div class="card-title">\ud83d\udd25 Goal streak: ${streak} day${streak!==1?'s':''}</div>
+    <div class="streak-bar">
+      ${last7.map(d => '<div class="streak-dot '+(d.hasData?(d.met?'hit':'miss'):'')+'"></div>').join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:4px">
+      <span style="font-size:9px;color:var(--text4)">6d ago</span>
+      <span style="font-size:9px;color:var(--text4)">Today</span>
+    </div>
+  </div>`);
+
+  // Waves survived
+  if (data.waves.length > 0) {
+    const wkWaves = data.waves.filter(w => weekKey(w.timestamp) === thisWK).length;
+    const avgSq = data.waves.length ? Math.round(data.waves.reduce((s,w)=>s+(w.squeezes||0),0)/data.waves.length*10)/10 : 0;
+    h.push(`<div class="card"><div class="card-title">\ud83c\udf0a Waves Survived</div>
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-val">${data.waves.length}</div><div class="stat-lbl">Total waves</div></div>
+        <div class="stat-box"><div class="stat-val">${wkWaves}</div><div class="stat-lbl">This week</div></div>
+        <div class="stat-box"><div class="stat-val">${avgSq}</div><div class="stat-lbl">Avg squeezes</div></div>
+      </div>
+    </div>`);
+  }
+
+  // Hydration
+  if (data.waterLogs.length > 0) {
+    h.push(`<div class="card"><div class="card-title">\ud83d\udca7 Hydration</div>
+      <div class="stats-row">
+        <div class="stat-box"><div class="stat-val">${getWaterDailyAvg()}ml</div><div class="stat-lbl">Avg daily</div></div>
+        <div class="stat-box"><div class="stat-val">${getWaterGoalDays()}</div><div class="stat-lbl">Goal days</div></div>
+        <div class="stat-box"><div class="stat-val">${data.waterGoalMl}ml</div><div class="stat-lbl">Daily goal</div></div>
+      </div>
+    </div>`);
+  }
+
+  // This week vs last
+  if (thisW || lastW) {
+    const twAvg = thisW ? thisW.avgInterval : 0;
+    const lwAvg = lastW ? lastW.avgInterval : 0;
+    const delta = lwAvg ? Math.round((twAvg - lwAvg)/lwAvg*100) : 0;
+    const deltaC = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+    const twCnt = thisW ? thisW.avgPerDay : 0;
+    const lwCnt = lastW ? lastW.avgPerDay : 0;
+    const cntDelta = lwCnt ? Math.round((lwCnt - twCnt)/lwCnt*100) : 0;
+    const cntC = cntDelta > 0 ? 'up' : cntDelta < 0 ? 'down' : 'flat';
+    h.push(`<div class="card"><div class="card-title">\ud83d\udcc8 This week vs last</div>
+      <div class="cmp-row">
+        <div class="cmp-col">
+          <div class="cmp-sub">Avg interval</div>
+          <div class="cmp-val">${fmtDurShort(twAvg)}</div>
+          <div class="cmp-delta ${deltaC}">${delta>0?'\u2191':delta<0?'\u2193':'\u2192'} ${Math.abs(delta)}%</div>
+        </div>
+        <div class="cmp-col">
+          <div class="cmp-sub">Voids/day</div>
+          <div class="cmp-val">${twCnt}</div>
+          <div class="cmp-delta ${cntC}">${cntDelta>0?'\u2193':cntDelta<0?'\u2191':'\u2192'} ${Math.abs(cntDelta)}%</div>
+        </div>
+      </div>
+    </div>`);
+  }
+
+  // Milestones
+  h.push('<div class="card"><div class="card-title">\ud83c\udfc5 Milestones</div><div class="ms-grid">');
+  MILESTONES.forEach(m => {
+    const u = data.milestones[m.id];
+    h.push('<div class="ms-item '+(u?'unlocked':'locked')+'">');
+    h.push('<div class="ms-icon">'+m.icon+'</div>');
+    h.push('<div class="ms-name">'+m.name+'</div>');
+    h.push('<div class="ms-desc">'+(u?fmtDate(u):m.desc)+'</div>');
+    h.push('</div>');
+  });
+  h.push('</div></div>');
+
+  // Avg interval chart
+  if (daily14.length > 1) {
+    h.push('<div class="card"><div class="card-title">\u23f1 Avg interval (14d)</div><div class="chart">');
+    daily14.forEach(d => {
+      const ht = Math.max(d.avgInterval/maxInt14*110,4);
+      const c = d.avgInterval >= goalMs ? 'var(--green)' : 'var(--accent)';
+      const dl = new Date(d.date+'T12:00:00').toLocaleDateString([],{weekday:'narrow'});
+      h.push('<div class="chart-col"><div class="chart-val">'+Math.round(d.avgInterval/60000)+'m</div><div class="chart-bar" style="height:'+ht+'px;background:'+c+'"></div><div class="chart-lbl">'+dl+'</div></div>');
+    });
+    h.push('</div></div>');
+  }
+
+  // Voids per day chart
+  if (daily14.length > 1) {
+    h.push('<div class="card"><div class="card-title">\ud83d\udebd Voids per day (14d)</div><div class="chart">');
+    daily14.forEach(d => {
+      const ht = Math.max(d.count/maxCnt14*110,4);
+      const dl = new Date(d.date+'T12:00:00').toLocaleDateString([],{weekday:'narrow'});
+      h.push('<div class="chart-col"><div class="chart-val">'+d.count+'</div><div class="chart-bar" style="height:'+ht+'px;background:var(--amber)"></div><div class="chart-lbl">'+dl+'</div></div>');
+    });
+    h.push('</div></div>');
+  }
+
+  // Volume trend
+  const volDays = daily14.filter(d => d.avgVol);
+  if (volDays.length > 1) {
+    const maxV = Math.max(...volDays.map(d=>d.avgVol),1);
+    h.push('<div class="card"><div class="card-title">\ud83d\udca7 Avg volume (14d)</div><div class="chart">');
+    volDays.forEach(d => {
+      const ht = Math.max(d.avgVol/maxV*110,4);
+      const dl = new Date(d.date+'T12:00:00').toLocaleDateString([],{weekday:'narrow'});
+      const c = d.avgVol>=400?'var(--green)':d.avgVol>=300?'var(--amber)':'var(--accent)';
+      h.push('<div class="chart-col"><div class="chart-val">'+d.avgVol+'</div><div class="chart-bar" style="height:'+ht+'px;background:'+c+'"></div><div class="chart-lbl">'+dl+'</div></div>');
+    });
+    h.push('</div><div style="font-size:10px;color:var(--green);text-align:right;margin-top:6px">Target: 500ml</div></div>');
+  }
+
+  // Hour distribution
+  if (data.logs.length > 5) {
+    h.push('<div class="card"><div class="card-title">\ud83d\udd50 Time distribution</div><div class="hour-grid">');
+    hours.forEach((count, hr) => {
+      const intensity = count / maxHour;
+      const bg = count===0?'var(--card)':intensity>.7?'#6366f1':intensity>.3?'#6366f166':'#6366f133';
+      const tc = intensity>.5?'#fff':'var(--text2)';
+      h.push('<div class="hour-cell" style="background:'+bg+'"><div class="hc-time">'+String(hr).padStart(2,'0')+':00</div><div class="hc-val" style="color:'+tc+'">'+(count||'\u00b7')+'</div></div>');
+    });
+    h.push('</div></div>');
+  }
+
+  // Tag analysis
+  const tagA = getTagAnalysis();
+  if (tagA) {
+    h.push('<div class="card"><div class="card-title">\ud83c\udff7 Trigger Analysis</div>');
+    Object.entries(tagA).forEach(([tag,info]) => {
+      const diff = info.avgWith - info.avgWithout;
+      const txt = diff>.2?'\u2191 Higher urgency':diff<-.2?'\u2193 Lower urgency':'\u2192 No effect';
+      const clr = diff>.2?'var(--red)':diff<-.2?'var(--green)':'var(--text3)';
+      h.push('<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px">'+(TAG_ICONS[tag]||'')+' '+tag+'</span><span style="font-size:12px;color:'+clr+'">'+txt+' ('+info.count+')</span></div>');
+    });
+    h.push('</div>');
+  }
+
+  // Location comparison
+  const locC = getLocationComparison();
+  if (locC) {
+    h.push(`<div class="card"><div class="card-title">\ud83d\udccd Home vs Out</div>
+      <div class="cmp-row">
+        <div class="cmp-col"><div class="cmp-sub">\ud83c\udfe0 Home</div><div class="cmp-val">${fmtDurShort(locC.homeAvg)}</div><div style="font-size:10px;color:var(--text3)">${locC.homeCount} logs</div></div>
+        <div class="cmp-col"><div class="cmp-sub">\ud83d\udeb6 Out</div><div class="cmp-val">${fmtDurShort(locC.outAvg)}</div><div style="font-size:10px;color:var(--text3)">${locC.outCount} logs</div></div>
+      </div>
+    </div>`);
+  }
+
+  // Weekly averages
+  if (weeklyAll.length > 1) {
+    h.push('<div class="card"><div class="card-title">\ud83d\udcc5 Weekly averages</div><div style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse"><tr style="color:var(--text3);font-size:10px;text-transform:uppercase"><td style="padding:6px 4px">Week</td><td style="padding:6px 4px;text-align:right">Voids</td><td style="padding:6px 4px;text-align:right">/day</td><td style="padding:6px 4px;text-align:right">Avg int</td><td style="padding:6px 4px;text-align:right">Vol</td></tr>');
+    weeklyAll.slice().reverse().forEach(w => {
+      h.push('<tr style="border-top:1px solid var(--border)"><td style="padding:6px 4px;color:var(--text2)">'+new Date(w.week+'T12:00:00').toLocaleDateString([],{month:'short',day:'numeric'})+'</td><td style="padding:6px 4px;text-align:right">'+w.count+'</td><td style="padding:6px 4px;text-align:right;color:var(--text2)">'+w.avgPerDay+'</td><td style="padding:6px 4px;text-align:right;color:'+(w.avgInterval>=goalMs?'var(--green)':'var(--text)')+'">'+fmtDurShort(w.avgInterval)+'</td><td style="padding:6px 4px;text-align:right;color:var(--amber)">'+(w.avgVol?w.avgVol+'ml':'\u2014')+'</td></tr>');
+    });
+    h.push('</table></div></div>');
+  }
+
+  if (data.logs.length === 0) h.push('<div class="empty">Start logging to see stats here.</div>');
+  h.push('</div>');
+  el.innerHTML = h.join('');
+}
+
+// ══════════════════════════════════════════════
+// HISTORY VIEW
+// ══════════════════════════════════════════════
+function renderHistory(el) {
+  const logs = [...data.logs].reverse().slice(0,50);
+  const h = ['<div class="header"><div class="subtitle">History</div></div>'];
+  if (!logs.length) h.push('<div class="empty">No logs yet.</div>');
+  let lastDate = '';
+  logs.forEach((log, i) => {
+    const realIdx = data.logs.length - 1 - i;
+    const dd = fmtDate(log.timestamp);
+    if (dd !== lastDate) {
+      h.push('<div style="font-size:11px;font-weight:600;color:var(--text3);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.06em">'+fmtDateFull(log.timestamp)+'</div>');
+      lastDate = dd;
+    }
+    const parts = [];
+    if (log.intervalMs) parts.push('<span class="log-detail" style="color:var(--accent)">\u2195 '+fmtDurShort(log.intervalMs)+'</span>');
+    if (log.urgency !== null && log.urgency !== undefined) parts.push('<span class="log-detail" style="color:'+urgColors[log.urgency]+'">'+urgLabels[log.urgency]+'</span>');
+    if (log.volume) parts.push('<span class="log-detail" style="color:var(--amber)">'+log.volume+'ml</span>');
+    if (log.location) parts.push('<span class="log-detail" style="color:var(--text3)">'+(log.location==='home'?'\ud83c\udfe0':'\ud83d\udeb6')+'</span>');
+    if (log.tags && log.tags.length) parts.push('<span class="log-detail" style="color:var(--text3)">'+log.tags.map(t=>TAG_ICONS[t]||t).join(' ')+'</span>');
+    const noteH = log.note ? '<div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:2px">'+log.note+'</div>' : '';
+    h.push('<div class="log-entry"><div><div class="log-time">'+fmtTime(log.timestamp)+'</div><div class="log-details">'+parts.join('')+'</div>'+noteH+'</div><button class="del-btn" onclick="delLog('+realIdx+')">\u00d7</button></div>');
+  });
+  if (data.logs.length > 50) h.push('<div style="text-align:center;font-size:12px;color:var(--text3);padding:12px">Showing last 50 of '+data.logs.length+' logs</div>');
+  el.innerHTML = h.join('');
+}
+
+// ══════════════════════════════════════════════
+// SETTINGS VIEW
+// ══════════════════════════════════════════════
+function renderSettings(el) {
+  el.innerHTML = `
+    <div class="header"><div class="subtitle">Settings</div></div>
+    <div class="section">
+      <div class="section-label">Goal interval (minutes)</div>
+      <div class="setting-row">
+        <button class="adj-btn" onclick="adjGoal(-15)">\u221215</button>
+        <div class="setting-val">${data.goalMinutes}min</div>
+        <button class="adj-btn" onclick="adjGoal(15)">+15</button>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-label">Water goal (ml/day)</div>
+      <div class="setting-row">
+        <button class="adj-btn" onclick="adjWaterGoal(-250)">\u2212250</button>
+        <div class="setting-val">${data.waterGoalMl}ml</div>
+        <button class="adj-btn" onclick="adjWaterGoal(250)">+250</button>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-label">Current phase</div>
+      <div class="phase-row">
+        ${[1,2,3,4].map(p => '<button class="phase-btn '+(data.phase===p?'active':'')+'" onclick="setPhase('+p+')">'+p+'</button>').join('')}
+      </div>
+      <div class="phase-desc">${
+        data.phase===1 ? 'Baseline \u2014 track without changing behavior' :
+        data.phase===2 ? 'Timed voiding \u2014 increase intervals gradually' :
+        data.phase===3 ? 'Normalize hydration + continue intervals' :
+        'Freedom \u2014 test in new environments'
+      }</div>
+    </div>
+    <div class="section">
+      <button class="action-btn" style="border-color:var(--accent);color:var(--accent)" onclick="switchView('protocol')">View Protocol Guide</button>
+    </div>
+    <div class="section" style="margin-top:24px">
+      <div class="section-label">Data management</div>
+      <button class="action-btn" style="border-color:var(--green);color:var(--green)" onclick="doExport()">Export Backup (JSON)</button>
+      <button class="action-btn" style="border-color:var(--text3);color:var(--text2)" onclick="doImport()">Import Backup</button>
+      <button class="action-btn" style="border-color:var(--red2);color:var(--red2);margin-top:20px" onclick="doReset()">Reset All Data</button>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════
+// PROTOCOL VIEW
+// ══════════════════════════════════════════════
+function renderProtocol(el) {
+  el.innerHTML = `
+    <div class="header">
+      <button class="back-btn" onclick="switchView('settings')">\u2190 Back</button>
+      <div class="subtitle">Protocol</div>
+    </div>
+    <div class="info-card">
+      <div class="info-title">Phase 1: Baseline (Days 1\u20135)</div>
+      <div class="info-text">Track every void. Change nothing. You need your real current intervals before setting goals. Set goal interval to match your current average.</div>
+    </div>
+    <div class="info-card">
+      <div class="info-title">Phase 2: Timed Voiding (Weeks 1\u20134)</div>
+      <div class="info-text">Set minimum interval at your current average. When urgency hits before goal: stop, breathe, 5 quick pelvic floor squeezes. Urgency comes in waves \u2014 ride it out. Increase goal by +15min every 3\u20135 days when comfortable.</div>
+    </div>
+    <div class="info-card">
+      <div class="info-title">Phase 3: Hydration (Weeks 4\u20138)</div>
+      <div class="info-text">Normalize water intake (1.5\u20132L/day). Concentrated urine = more irritation = more urgency. This feels scary but is essential. Continue increasing intervals.</div>
+    </div>
+    <div class="info-card">
+      <div class="info-title">Phase 4: Freedom (Week 8+)</div>
+      <div class="info-text">You should be at 2.5\u20133hr intervals with normal hydration. Start testing \u201cunsafe\u201d environments. Map bathrooms in common areas, then gradually extend time away from them.</div>
+    </div>
+    <div class="info-card" style="border-left-color:var(--amber)">
+      <div class="info-title" style="color:var(--amber)">Urgency Suppression</div>
+      <div class="info-text">When urgency hits: STOP moving. 3 slow breaths. 5\u20136 rapid pelvic floor contractions (squeeze and release). This inhibits the detrusor muscle. The wave WILL pass in 30\u201360 seconds. Then distract yourself. Urgency at 200ml \u2260 full bladder \u2014 it\u2019s anxiety squeezing your bladder.</div>
+    </div>
+    <div class="info-card" style="border-left-color:var(--green)">
+      <div class="info-title" style="color:var(--green)">The Dehydration Trap</div>
+      <div class="info-text">Concentrated urine irritates the bladder wall \u2192 more urgency signals \u2192 more fear \u2192 more dehydration. Breaking this cycle is essential. More water = less irritation = less false urgency. Track your water intake to see this in your own data.</div>
+    </div>
+    <div class="info-card" style="border-left-color:var(--text2)">
+      <div class="info-title" style="color:var(--text2)">Key Insight</div>
+      <div class="info-text">Your nervous system sends false urgency signals under stress. The intense \u201cabout to burst\u201d at low volumes is anxiety-driven detrusor contraction, not capacity. As you retrain, you\u2019ll distinguish real fullness from anxiety urgency.</div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════
+// WAVE RIDER
+// ══════════════════════════════════════════════
+function openWaveRider() {
+  document.getElementById('wave-overlay').classList.add('active');
+  document.getElementById('wave-active').style.display = 'flex';
+  document.getElementById('wave-done').style.display = 'none';
+  document.getElementById('wave-fab').style.display = 'none';
+  waveActive = true;
+  waveStartTS = null;
+  waveSqueezes = 0;
+  document.getElementById('squeeze-count').textContent = '0';
+  document.getElementById('wave-timer').textContent = '60s';
+  document.getElementById('wave-circle').style.transform = 'scale(0.5)';
+  document.getElementById('wave-text').textContent = 'Breathe in...';
+  const ring = document.getElementById('wave-ring');
+  ring.setAttribute('stroke-dashoffset', 2 * Math.PI * 70);
+  waveRAF = requestAnimationFrame(waveLoop);
+}
+
+function closeWaveRider() {
+  waveActive = false;
+  if (waveRAF) cancelAnimationFrame(waveRAF);
+  document.getElementById('wave-overlay').classList.remove('active');
+  document.getElementById('wave-fab').style.display = '';
+}
+
+function waveLoop(timestamp) {
+  if (!waveActive) return;
+  if (waveStartTS === null) waveStartTS = timestamp;
+  const elapsed = timestamp - waveStartTS;
+  const totalMs = 60000;
+
+  if (elapsed >= totalMs) { finishWave(totalMs); return; }
+
+  // Breathing: 4s in, 3s hold, 5s out = 12s cycle
+  const t = elapsed % 12000;
+  let scale, phaseText;
+  if (t < 4000) {
+    scale = 0.5 + 0.5 * ease(t / 4000);
+    phaseText = 'Breathe in...';
+  } else if (t < 7000) {
+    scale = 1.0;
+    phaseText = 'Hold...';
+  } else {
+    scale = 1.0 - 0.5 * ease((t - 7000) / 5000);
+    phaseText = 'Breathe out...';
+  }
+
+  const circle = document.getElementById('wave-circle');
+  const text = document.getElementById('wave-text');
+  const timer = document.getElementById('wave-timer');
+  const ring = document.getElementById('wave-ring');
+
+  if (circle) circle.style.transform = 'scale(' + scale + ')';
+  if (text) text.textContent = phaseText;
+  if (timer) timer.textContent = Math.ceil((totalMs - elapsed) / 1000) + 's';
+  if (ring) {
+    const c = 2 * Math.PI * 70;
+    ring.setAttribute('stroke-dashoffset', c * (1 - elapsed / totalMs));
+  }
+  waveRAF = requestAnimationFrame(waveLoop);
+}
+
+function ease(t) { return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2; }
+
+function addSqueeze() {
+  waveSqueezes++;
+  document.getElementById('squeeze-count').textContent = waveSqueezes;
+  haptic('LIGHT');
+}
+
+function earlyComplete() {
+  if (!waveActive || !waveStartTS) return;
+  const elapsed = performance.now() - waveStartTS;
+  finishWave(Math.round(elapsed));
+}
+
+function finishWave(durationMs) {
+  waveActive = false;
+  if (waveRAF) cancelAnimationFrame(waveRAF);
+  document.getElementById('wave-active').style.display = 'none';
+  const done = document.getElementById('wave-done');
+  done.style.display = 'flex';
+  document.getElementById('wave-done-sub').textContent =
+    'You survived. ' + waveSqueezes + ' squeeze' + (waveSqueezes !== 1 ? 's' : '') + '. ' +
+    Math.round(durationMs/1000) + 's.';
+
+  data.waves.push({ timestamp: Date.now(), duration: durationMs, squeezes: waveSqueezes });
+  save();
+  checkMilestones();
+  haptic('HEAVY');
+}
+
+// ══════════════════════════════════════════════
+// ACTIONS
+// ══════════════════════════════════════════════
+function pickUrg(i) { selectedUrgency = selectedUrgency === i ? null : i; render(); }
+function setLoc(loc) {
+  selectedLocation = selectedLocation === loc ? null : loc;
+  try { localStorage.setItem('void-last-loc', selectedLocation || ''); } catch(e){}
+  render();
+}
+function toggleTag(t) {
+  const idx = selectedTags.indexOf(t);
+  if (idx >= 0) selectedTags.splice(idx,1); else selectedTags.push(t);
+  render();
+}
+
+function doLog() {
+  if (justLogged) return;
+  const last = data.logs.length ? data.logs[data.logs.length-1] : null;
+  data.logs.push({
+    timestamp: Date.now(),
+    urgency: selectedUrgency,
+    volume: volumeInput ? parseInt(volumeInput) : null,
+    note: noteInput || null,
+    intervalMs: last ? Date.now() - last.timestamp : null,
+    location: selectedLocation,
+    tags: [...selectedTags],
+  });
+  save();
+  haptic('MEDIUM');
+  checkMilestones();
+  selectedUrgency = null;
+  volumeInput = '';
+  noteInput = '';
+  selectedTags = [];
+  justLogged = true;
+  render();
+  setTimeout(() => { justLogged = false; render(); }, 1200);
+}
+
+function delLog(idx) {
+  if (!confirm('Delete this log entry?')) return;
+  data.logs.splice(idx, 1);
+  data.logs.forEach((l, i) => { l.intervalMs = i > 0 ? l.timestamp - data.logs[i-1].timestamp : null; });
+  save(); render();
+}
+
+function addWater(ml) {
+  data.waterLogs.push({ timestamp: Date.now(), amount: ml });
+  save(); haptic('LIGHT'); checkMilestones(); render();
+}
+
+function undoWater() {
+  const dk = today();
+  for (let i = data.waterLogs.length - 1; i >= 0; i--) {
+    if (dayKey(data.waterLogs[i].timestamp) === dk) {
+      data.waterLogs.splice(i, 1);
+      save(); render(); return;
+    }
+  }
+}
+
+function adjGoal(delta) { data.goalMinutes = Math.max(15, data.goalMinutes + delta); save(); render(); }
+function adjWaterGoal(delta) { data.waterGoalMl = Math.max(500, data.waterGoalMl + delta); save(); render(); }
+function setPhase(p) { data.phase = p; save(); checkMilestones(); render(); }
+
+function doExport() {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'void-backup-'+dayKey(Date.now())+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function doImport() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if (parsed.logs && Array.isArray(parsed.logs)) {
+        data = migrate(parsed); save(); render();
+        alert('Restored ' + parsed.logs.length + ' logs.');
+      } else alert('Invalid backup file.');
+    } catch(err) { alert('Failed to read file.'); }
+  };
+  input.click();
+}
+
+function doReset() {
+  if (confirm('Delete ALL data? Cannot be undone.')) {
+    data = { logs:[], goalMinutes:60, phase:1, waterLogs:[], waves:[], milestones:{}, waterGoalMl:2000 };
+    save(); render();
+  }
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+load();
+render();
+timerInterval = setInterval(() => { if (currentView === 'log') updateTimer(); }, 1000);
+
+// Service Worker (inline, offline support)
+if ('serviceWorker' in navigator) {
+  const swCode = `
+    const CACHE='void-v2';
+    self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./','./index.html'])));self.skipWaiting()});
+    self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));e.waitUntil(clients.claim())});
+    self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)).catch(()=>caches.match('./')))});
+  `;
+  navigator.serviceWorker.register(URL.createObjectURL(new Blob([swCode],{type:'application/javascript'}))).catch(()=>{});
+}
+</script>
+</body>
+</html>
