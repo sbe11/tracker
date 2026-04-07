@@ -368,6 +368,7 @@ let selectedLocation = null;
 let selectedTags = [];
 let volumeInput = '';
 let noteInput = '';
+let customTime = ''; // HH:MM format, empty = use Date.now()
 let justLogged = false;
 let timerInterval = null;
 
@@ -437,6 +438,32 @@ function haptic(style) {
       navigator.vibrate(style === 'HEAVY' ? 50 : 15);
     }
   } catch(e){}
+}
+
+// Convert HH:MM string to today's timestamp (or yesterday if HH:MM > now)
+function timeStringToTimestamp(timeStr) {
+  if (!timeStr) return Date.now();
+  const [h, m] = timeStr.split(':').map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  if (d.getTime() > Date.now()) d.setDate(d.getDate() - 1);
+  return d.getTime();
+}
+
+function setTimeAgo(minutes) {
+  const t = new Date(Date.now() - minutes * 60000);
+  customTime = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0');
+  render();
+}
+
+function resetTime() { customTime = ''; render(); }
+
+// Sort logs by timestamp and recalculate all intervals
+function recalcIntervals() {
+  data.logs.sort((a, b) => a.timestamp - b.timestamp);
+  data.logs.forEach((l, i) => {
+    l.intervalMs = i > 0 ? l.timestamp - data.logs[i-1].timestamp : null;
+  });
 }
 
 // ── Data access ──
@@ -666,14 +693,14 @@ function updateTimer() {
   if (lbl) lbl.textContent = elapsed === null ? 'First log' : pastGoal ? 'GOAL MET' : 'Holding';
 
   const btn = document.getElementById('log-main-btn');
-  if (btn && !justLogged) {
+  if (btn && !justLogged && !customTime) {
     const early = elapsed !== null && elapsed < goalMs;
     btn.className = 'log-btn ' + (early ? 'early' : 'ready');
     btn.textContent = early ? 'LOG (before goal)' : 'LOG VOID';
   }
   const warn = document.getElementById('early-warn');
   if (warn) {
-    if (elapsed !== null && elapsed < goalMs && !justLogged) {
+    if (elapsed !== null && elapsed < goalMs && !justLogged && !customTime) {
       warn.textContent = fmtDurShort(goalMs - elapsed) + ' until goal \u2014 try urgency suppression first';
       warn.style.display = '';
     } else {
@@ -702,8 +729,13 @@ function renderLog(el) {
   const todayIntervals = todayLogs.filter(l => l.intervalMs);
   const avgToday = todayIntervals.length ? todayIntervals.reduce((s,l)=>s+l.intervalMs,0)/todayIntervals.length : null;
 
-  const btnClass = justLogged ? 'done' : (elapsed !== null && elapsed < goalMs) ? 'early' : 'ready';
-  const btnText = justLogged ? 'LOGGED \u2713' : (elapsed !== null && elapsed < goalMs) ? 'LOG (before goal)' : 'LOG VOID';
+  const isCustomTime = customTime !== '';
+  const customTs = isCustomTime ? timeStringToTimestamp(customTime) : null;
+  const minsAgo = isCustomTime ? Math.round((Date.now() - customTs) / 60000) : 0;
+  const btnClass = justLogged ? 'done' : isCustomTime ? 'ready' : (elapsed !== null && elapsed < goalMs) ? 'early' : 'ready';
+  const btnText = justLogged ? 'LOGGED \u2713' :
+    isCustomTime ? 'LOG (' + minsAgo + 'm ago)' :
+    (elapsed !== null && elapsed < goalMs) ? 'LOG (before goal)' : 'LOG VOID';
 
   const todayWater = getTodayWater();
   const waterPct = Math.min(todayWater / data.waterGoalMl * 100, 100);
@@ -762,6 +794,22 @@ function renderLog(el) {
     <div class="section">
       <div class="section-label">Note (optional)</div>
       <input class="note-input" id="note-input" type="text" placeholder="e.g. coffee, stressed..." value="${noteInput}" oninput="noteInput=this.value"/>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Time (default: now)</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <input type="time" value="${customTime}" onchange="customTime=this.value;render()"
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid ${isCustomTime?'var(--accent)':'var(--border)'};background:#0f172a;color:var(--text);font-size:14px;font-family:inherit"/>
+        ${isCustomTime ? '<button class="loc-btn" onclick="resetTime()" style="flex:0 0 64px;padding:10px 0">Now</button>' : ''}
+      </div>
+      <div class="tag-row">
+        <button class="tag-pill" onclick="setTimeAgo(15)">15m ago</button>
+        <button class="tag-pill" onclick="setTimeAgo(30)">30m ago</button>
+        <button class="tag-pill" onclick="setTimeAgo(60)">1h ago</button>
+        <button class="tag-pill" onclick="setTimeAgo(120)">2h ago</button>
+        <button class="tag-pill" onclick="setTimeAgo(180)">3h ago</button>
+      </div>
     </div>
 
     <button class="log-btn ${btnClass}" id="log-main-btn" onclick="doLog()">${btnText}</button>
@@ -1220,16 +1268,17 @@ function toggleTag(t) {
 
 function doLog() {
   if (justLogged) return;
-  const last = data.logs.length ? data.logs[data.logs.length-1] : null;
+  const ts = customTime ? timeStringToTimestamp(customTime) : Date.now();
   data.logs.push({
-    timestamp: Date.now(),
+    timestamp: ts,
     urgency: selectedUrgency,
     volume: volumeInput ? parseInt(volumeInput) : null,
     note: noteInput || null,
-    intervalMs: last ? Date.now() - last.timestamp : null,
+    intervalMs: null, // recalculated below
     location: selectedLocation,
     tags: [...selectedTags],
   });
+  recalcIntervals();
   save();
   haptic('MEDIUM');
   checkMilestones();
@@ -1237,6 +1286,7 @@ function doLog() {
   volumeInput = '';
   noteInput = '';
   selectedTags = [];
+  customTime = '';
   justLogged = true;
   render();
   setTimeout(() => { justLogged = false; render(); }, 1200);
@@ -1245,7 +1295,7 @@ function doLog() {
 function delLog(idx) {
   if (!confirm('Delete this log entry?')) return;
   data.logs.splice(idx, 1);
-  data.logs.forEach((l, i) => { l.intervalMs = i > 0 ? l.timestamp - data.logs[i-1].timestamp : null; });
+  recalcIntervals();
   save(); render();
 }
 
