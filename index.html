@@ -356,10 +356,12 @@ body{
 // STATE & CONSTANTS
 // ══════════════════════════════════════════════
 const STORAGE_KEY = 'void-tracker-data';
-const TAGS = ['coffee','stress','cold','exercise','alcohol','meds'];
-const TAG_ICONS = {coffee:'\u2615',stress:'\ud83d\ude30',cold:'\ud83e\udd76',exercise:'\ud83c\udfc3',alcohol:'\ud83c\udf7a',meds:'\ud83d\udc8a'};
+const TAGS = ['coffee','stress','cold','exercise','alcohol','meds','poop','sleep'];
+const TAG_ICONS = {coffee:'\u2615',stress:'\ud83d\ude30',cold:'\ud83e\udd76',exercise:'\ud83c\udfc3',alcohol:'\ud83c\udf7a',meds:'\ud83d\udc8a',poop:'\ud83d\udca9',sleep:'\ud83c\udf19'};
 const urgLabels = ['Low','Med','High'];
 const urgColors = ['var(--green)','var(--amber)','var(--red)'];
+// Overnight = the previous void was tagged "sleep" (bedtime)
+function isOvernightAt(i) { return i > 0 && data.logs[i-1] && data.logs[i-1].tags && data.logs[i-1].tags.includes('sleep'); }
 
 let data = { logs:[], goalMinutes:60, phase:1, waterLogs:[], waves:[], milestones:{}, waterGoalMl:2000 };
 let currentView = 'log';
@@ -471,11 +473,11 @@ function getLogsForDay(dk) { return data.logs.filter(l => dayKey(l.timestamp) ==
 
 function getDailyStats(n) {
   const days = {};
-  data.logs.forEach(l => {
+  data.logs.forEach((l, i) => {
     const dk = dayKey(l.timestamp);
     if (!days[dk]) days[dk] = {intervals:[],count:0,volumes:[],urgencies:[]};
     days[dk].count++;
-    if (l.intervalMs) days[dk].intervals.push(l.intervalMs);
+    if (l.intervalMs && !isOvernightAt(i)) days[dk].intervals.push(l.intervalMs);
     if (l.volume) days[dk].volumes.push(l.volume);
     if (l.urgency !== null && l.urgency !== undefined) days[dk].urgencies.push(l.urgency);
   });
@@ -489,12 +491,12 @@ function getDailyStats(n) {
 
 function getWeeklyStats(n) {
   const weeks = {};
-  data.logs.forEach(l => {
+  data.logs.forEach((l, i) => {
     const wk = weekKey(l.timestamp);
     if (!weeks[wk]) weeks[wk] = {intervals:[],count:0,volumes:[],days:new Set()};
     weeks[wk].count++;
     weeks[wk].days.add(dayKey(l.timestamp));
-    if (l.intervalMs) weeks[wk].intervals.push(l.intervalMs);
+    if (l.intervalMs && !isOvernightAt(i)) weeks[wk].intervals.push(l.intervalMs);
     if (l.volume) weeks[wk].volumes.push(l.volume);
   });
   return Object.entries(weeks).sort(([a],[b])=>a.localeCompare(b)).slice(-n).map(([wk,s])=>({
@@ -537,7 +539,7 @@ function getLast7DaysMet() {
 }
 
 function getAllTimeStats() {
-  const intervals = data.logs.filter(l => l.intervalMs).map(l => l.intervalMs);
+  const intervals = data.logs.filter((l, i) => l.intervalMs && !isOvernightAt(i)).map(l => l.intervalMs);
   const volumes = data.logs.filter(l => l.volume).map(l => l.volume);
   return {
     totalLogs: data.logs.length,
@@ -681,16 +683,18 @@ function updateTimer() {
   const pastGoal = elapsed !== null && elapsed >= goalMs;
   const circumference = 2 * Math.PI * 78;
 
+  const lastLog = data.logs.length ? data.logs[data.logs.length - 1] : null;
+  const overnightGap = lastLog && lastLog.tags && lastLog.tags.includes('sleep');
   tv.textContent = elapsed === null ? '\u2014' : fmtDur(elapsed);
-  tv.style.color = pastGoal ? 'var(--green)' : 'var(--text)';
+  tv.style.color = overnightGap ? 'var(--text3)' : pastGoal ? 'var(--green)' : 'var(--text)';
 
   const ring = document.getElementById('timer-ring');
   if (ring) {
     ring.setAttribute('stroke-dashoffset', circumference * (1 - progress));
-    ring.setAttribute('stroke', pastGoal ? 'var(--green)' : 'var(--accent)');
+    ring.setAttribute('stroke', overnightGap ? 'var(--text4)' : pastGoal ? 'var(--green)' : 'var(--accent)');
   }
   const lbl = document.getElementById('timer-label');
-  if (lbl) lbl.textContent = elapsed === null ? 'First log' : pastGoal ? 'GOAL MET' : 'Holding';
+  if (lbl) lbl.textContent = elapsed === null ? 'First log' : overnightGap ? 'OVERNIGHT' : pastGoal ? 'GOAL MET' : 'Holding';
 
   const btn = document.getElementById('log-main-btn');
   if (btn && !justLogged && !customTime) {
@@ -718,11 +722,12 @@ function renderLog(el) {
   const goalMs = data.goalMinutes * 60000;
   const progress = elapsed !== null ? Math.min(elapsed / goalMs, 1) : 0;
   const pastGoal = elapsed !== null && elapsed >= goalMs;
+  const overnightGap = last && last.tags && last.tags.includes('sleep');
   const circumference = 2 * Math.PI * 78;
   const offset = circumference * (1 - progress);
-  const strokeColor = pastGoal ? 'var(--green)' : 'var(--accent)';
-  const timerColor = pastGoal ? 'var(--green)' : 'var(--text)';
-  const label = elapsed === null ? 'First log' : pastGoal ? 'GOAL MET' : 'Holding';
+  const strokeColor = overnightGap ? 'var(--text4)' : pastGoal ? 'var(--green)' : 'var(--accent)';
+  const timerColor = overnightGap ? 'var(--text3)' : pastGoal ? 'var(--green)' : 'var(--text)';
+  const label = elapsed === null ? 'First log' : overnightGap ? 'OVERNIGHT' : pastGoal ? 'GOAL MET' : 'Holding';
   const timerVal = elapsed === null ? '\u2014' : fmtDur(elapsed);
 
   const todayLogs = getLogsForDay(today());
@@ -1059,7 +1064,10 @@ function renderHistory(el) {
       lastDate = dd;
     }
     const parts = [];
-    if (log.intervalMs) parts.push('<span class="log-detail" style="color:var(--accent)">\u2195 '+fmtDurShort(log.intervalMs)+'</span>');
+    if (log.intervalMs) {
+      if (isOvernightAt(realIdx)) parts.push('<span class="log-detail" style="color:var(--text4)">\ud83c\udf19 overnight</span>');
+      else parts.push('<span class="log-detail" style="color:var(--accent)">\u2195 '+fmtDurShort(log.intervalMs)+'</span>');
+    }
     if (log.urgency !== null && log.urgency !== undefined) parts.push('<span class="log-detail" style="color:'+urgColors[log.urgency]+'">'+urgLabels[log.urgency]+'</span>');
     if (log.volume) parts.push('<span class="log-detail" style="color:var(--amber)">'+log.volume+'ml</span>');
     if (log.location) parts.push('<span class="log-detail" style="color:var(--text3)">'+(log.location==='home'?'\ud83c\udfe0':'\ud83d\udeb6')+'</span>');
@@ -1360,13 +1368,23 @@ load();
 render();
 timerInterval = setInterval(() => { if (currentView === 'log') updateTimer(); }, 1000);
 
-// Service Worker (inline, offline support)
+// Service Worker (inline, offline support, network-first so updates land immediately)
 if ('serviceWorker' in navigator) {
   const swCode = `
-    const CACHE='void-v2';
-    self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./','./index.html'])));self.skipWaiting()});
-    self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));e.waitUntil(clients.claim())});
-    self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)).catch(()=>caches.match('./')))});
+    const CACHE='void-v3';
+    self.addEventListener('install',e=>self.skipWaiting());
+    self.addEventListener('activate',e=>{
+      e.waitUntil(caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k)))).then(()=>clients.claim()));
+    });
+    self.addEventListener('fetch',e=>{
+      if(e.request.method!=='GET')return;
+      e.respondWith(
+        fetch(e.request).then(r=>{
+          if(r&&r.ok){const c=r.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c));}
+          return r;
+        }).catch(()=>caches.match(e.request))
+      );
+    });
   `;
   navigator.serviceWorker.register(URL.createObjectURL(new Blob([swCode],{type:'application/javascript'}))).catch(()=>{});
 }
