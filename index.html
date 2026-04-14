@@ -362,6 +362,8 @@ const urgLabels = ['Low','Med','High'];
 const urgColors = ['var(--green)','var(--amber)','var(--red)'];
 // Overnight = the previous void was tagged "sleep" (bedtime)
 function isOvernightAt(i) { return i > 0 && data.logs[i-1] && data.logs[i-1].tags && data.logs[i-1].tags.includes('sleep'); }
+// Exclude from stats = overnight OR user manually skipped the interval
+function isExcludedInterval(i) { return isOvernightAt(i) || (data.logs[i] && data.logs[i].skippedInterval); }
 
 let data = { logs:[], goalMinutes:60, phase:1, waterLogs:[], waves:[], milestones:{}, waterGoalMl:2000 };
 let currentView = 'log';
@@ -402,6 +404,7 @@ function migrate(d) {
   d.logs.forEach(l => {
     if (!l.tags) l.tags = [];
     if (l.location === undefined) l.location = null;
+    if (l.skippedInterval === undefined) l.skippedInterval = false;
   });
   return d;
 }
@@ -477,7 +480,7 @@ function getDailyStats(n) {
     const dk = dayKey(l.timestamp);
     if (!days[dk]) days[dk] = {intervals:[],count:0,volumes:[],urgencies:[]};
     days[dk].count++;
-    if (l.intervalMs && !isOvernightAt(i)) days[dk].intervals.push(l.intervalMs);
+    if (l.intervalMs && !isExcludedInterval(i)) days[dk].intervals.push(l.intervalMs);
     if (l.volume) days[dk].volumes.push(l.volume);
     if (l.urgency !== null && l.urgency !== undefined) days[dk].urgencies.push(l.urgency);
   });
@@ -496,7 +499,7 @@ function getWeeklyStats(n) {
     if (!weeks[wk]) weeks[wk] = {intervals:[],count:0,volumes:[],days:new Set()};
     weeks[wk].count++;
     weeks[wk].days.add(dayKey(l.timestamp));
-    if (l.intervalMs && !isOvernightAt(i)) weeks[wk].intervals.push(l.intervalMs);
+    if (l.intervalMs && !isExcludedInterval(i)) weeks[wk].intervals.push(l.intervalMs);
     if (l.volume) weeks[wk].volumes.push(l.volume);
   });
   return Object.entries(weeks).sort(([a],[b])=>a.localeCompare(b)).slice(-n).map(([wk,s])=>({
@@ -539,7 +542,7 @@ function getLast7DaysMet() {
 }
 
 function getAllTimeStats() {
-  const intervals = data.logs.filter((l, i) => l.intervalMs && !isOvernightAt(i)).map(l => l.intervalMs);
+  const intervals = data.logs.filter((l, i) => l.intervalMs && !isExcludedInterval(i)).map(l => l.intervalMs);
   const volumes = data.logs.filter(l => l.volume).map(l => l.volume);
   return {
     totalLogs: data.logs.length,
@@ -821,6 +824,12 @@ function renderLog(el) {
     <div class="early-warn" id="early-warn" style="display:${elapsed !== null && elapsed < goalMs && !justLogged ? '' : 'none'}">
       ${elapsed !== null && elapsed < goalMs ? fmtDurShort(goalMs - elapsed)+' until goal \u2014 try urgency suppression first' : ''}
     </div>
+    ${elapsed !== null && !justLogged && !overnightGap && elapsed > 8 * 3600000
+      ? '<button style="width:100%;padding:12px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:8px" onclick="doLog(true)">FRESH START (skip '+fmtDurShort(elapsed)+' gap)</button>'
+      : elapsed !== null && !justLogged
+        ? '<div style="text-align:center;margin-top:6px"><button style="background:none;border:none;color:var(--text4);font-size:11px;cursor:pointer;font-family:inherit;padding:4px" onclick="doLog(true)">skip interval (fresh start)</button></div>'
+        : ''
+    }
 
     <div class="stats-row" style="margin-top:14px">
       <div class="stat-box"><div class="stat-val">${todayLogs.length}</div><div class="stat-lbl">Today</div></div>
@@ -1066,6 +1075,7 @@ function renderHistory(el) {
     const parts = [];
     if (log.intervalMs) {
       if (isOvernightAt(realIdx)) parts.push('<span class="log-detail" style="color:var(--text4)">\ud83c\udf19 overnight</span>');
+      else if (log.skippedInterval) parts.push('<span class="log-detail" style="color:var(--text4)">\u23ed resumed</span>');
       else parts.push('<span class="log-detail" style="color:var(--accent)">\u2195 '+fmtDurShort(log.intervalMs)+'</span>');
     }
     if (log.urgency !== null && log.urgency !== undefined) parts.push('<span class="log-detail" style="color:'+urgColors[log.urgency]+'">'+urgLabels[log.urgency]+'</span>');
@@ -1274,7 +1284,7 @@ function toggleTag(t) {
   render();
 }
 
-function doLog() {
+function doLog(freshStart) {
   if (justLogged) return;
   const ts = customTime ? timeStringToTimestamp(customTime) : Date.now();
   data.logs.push({
@@ -1285,6 +1295,7 @@ function doLog() {
     intervalMs: null, // recalculated below
     location: selectedLocation,
     tags: [...selectedTags],
+    skippedInterval: freshStart || false,
   });
   recalcIntervals();
   save();
