@@ -176,6 +176,43 @@ body{
 .ms-icon{font-size:22px}.ms-name{font-size:9px;font-weight:700;color:var(--text);margin-top:2px}
 .ms-desc{font-size:8px;color:var(--text3);margin-top:1px}
 
+/* ── Reality Check (anxiety-disproving stats) ── */
+.rc-card{
+  background:linear-gradient(180deg,#6366f114,var(--card));
+  border:1px solid #6366f144;border-radius:14px;padding:16px;margin-bottom:10px;
+}
+.rc-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.rc-sub{font-size:11px;color:var(--text3);line-height:1.5;margin-bottom:14px}
+.rc-panel{background:#0f172a;border-radius:10px;padding:12px;margin-bottom:10px}
+.rc-panel:last-child{margin-bottom:0}
+.rc-panel-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;font-weight:600}
+.rc-then-now{display:flex;align-items:flex-end;gap:10px}
+.rc-tn-col{flex:1;text-align:center}
+.rc-tn-lbl{font-size:10px;color:var(--text3);margin-bottom:4px}
+.rc-tn-val{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums}
+.rc-tn-arrow{color:var(--text3);font-size:20px;padding-bottom:6px}
+.rc-tn-delta{text-align:center;margin-top:12px;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+.rc-tn-foot{text-align:center;font-size:10px;color:var(--text4);margin-top:4px}
+.rc-trend{width:100%;height:90px;display:block}
+.rc-trend-hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.rc-trend-hd .lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.rc-trend-hd .val{font-size:13px;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums}
+.rc-pb{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #334155}
+.rc-pb:last-child{border-bottom:none}
+.rc-pb-rank{font-size:11px;font-weight:800;color:var(--accent2);width:20px;text-align:center}
+.rc-pb-main{flex:1}
+.rc-pb-dur{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--green)}
+.rc-pb-ctx{font-size:10px;color:var(--text3);margin-top:2px}
+.rc-fact{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #334155}
+.rc-fact:last-child{border-bottom:none}
+.rc-fact-lbl{font-size:11px;color:var(--text2);line-height:1.4;flex:1}
+.rc-fact-val{font-size:13px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rc-fact-val.neutral{color:var(--text)}
+.rc-empty{text-align:center;padding:8px 0}
+.rc-empty-icon{font-size:26px;margin-bottom:6px}
+.rc-empty-txt{font-size:12px;color:var(--text3);line-height:1.5}
+.rc-empty-txt strong{color:var(--accent2)}
+
 /* ── Log entry ── */
 .log-entry{
   display:flex;justify-content:space-between;align-items:center;
@@ -376,6 +413,10 @@ let customTime = ''; // HH:MM format, empty = use Date.now()
 let justLogged = false;
 let timerInterval = null;
 
+// Reminder state
+let reminderInterval = null;
+let lastNotifTime = 0;
+
 // Wave Rider state
 let waveActive = false;
 let waveStartTS = null;
@@ -406,6 +447,7 @@ function migrate(d) {
     if (l.location === undefined) l.location = null;
     if (l.skippedInterval === undefined) l.skippedInterval = false;
   });
+  if (d.remindersEnabled === undefined) d.remindersEnabled = false;
   return d;
 }
 
@@ -533,10 +575,15 @@ function getLast7DaysMet() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
     const dk = dayKey(d.getTime());
-    const logs = getLogsForDay(dk);
-    const intervals = logs.filter(l => l.intervalMs).map(l => l.intervalMs);
+    const intervals = [];
+    let hasData = false;
+    data.logs.forEach((l, idx) => {
+      if (dayKey(l.timestamp) !== dk) return;
+      hasData = true;
+      if (l.intervalMs && !isExcludedInterval(idx)) intervals.push(l.intervalMs);
+    });
     const avg = intervals.length ? intervals.reduce((a,b)=>a+b,0)/intervals.length : 0;
-    result.push({date:dk, met:intervals.length > 0 && avg >= goalMs, hasData:logs.length > 0});
+    result.push({date:dk, met:intervals.length > 0 && avg >= goalMs, hasData});
   }
   return result;
 }
@@ -589,13 +636,115 @@ function getTagAnalysis() {
 }
 
 function getLocationComparison() {
-  const home = data.logs.filter(l => l.location === 'home' && l.intervalMs);
-  const out = data.logs.filter(l => l.location === 'out' && l.intervalMs);
+  const home = [], out = [];
+  data.logs.forEach((l, i) => {
+    if (!l.intervalMs || isExcludedInterval(i)) return;
+    if (l.location === 'home') home.push(l.intervalMs);
+    else if (l.location === 'out') out.push(l.intervalMs);
+  });
   if (home.length < 3 || out.length < 3) return null;
   return {
-    homeAvg: home.reduce((s,l)=>s+l.intervalMs,0)/home.length,
-    outAvg: out.reduce((s,l)=>s+l.intervalMs,0)/out.length,
+    homeAvg: home.reduce((a,b)=>a+b,0)/home.length,
+    outAvg: out.reduce((a,b)=>a+b,0)/out.length,
     homeCount: home.length, outCount: out.length,
+  };
+}
+
+// ══════════════════════════════════════════════
+// ANXIETY REALITY CHECK HELPERS
+// ══════════════════════════════════════════════
+
+// First tracked week vs most recent tracked week. The headline anti-anxiety chart.
+function getFirstVsRecent() {
+  const dayMap = {};
+  data.logs.forEach((l, i) => {
+    if (!l.intervalMs || isExcludedInterval(i)) return;
+    const dk = dayKey(l.timestamp);
+    (dayMap[dk] = dayMap[dk] || []).push(l.intervalMs);
+  });
+  const sortedDays = Object.keys(dayMap).sort();
+  if (sortedDays.length < 10) return { daysTracked: sortedDays.length, needed: 10 - sortedDays.length };
+
+  const firstDays = sortedDays.slice(0, 7);
+  const recentDays = sortedDays.slice(-7);
+  const firstInts = firstDays.flatMap(d => dayMap[d]);
+  const recentInts = recentDays.flatMap(d => dayMap[d]);
+  if (firstInts.length < 3 || recentInts.length < 3) return { daysTracked: sortedDays.length, needed: 0 };
+
+  const firstAvg = firstInts.reduce((a,b)=>a+b,0) / firstInts.length;
+  const recentAvg = recentInts.reduce((a,b)=>a+b,0) / recentInts.length;
+  return {
+    firstAvg, recentAvg,
+    deltaMin: Math.round((recentAvg - firstAvg) / 60000),
+    deltaPct: firstAvg > 0 ? Math.round((recentAvg - firstAvg) / firstAvg * 100) : 0,
+    daysTracked: sortedDays.length,
+    firstRange: firstDays[0] + ' \u2192 ' + firstDays[firstDays.length-1],
+    recentRange: recentDays[0] + ' \u2192 ' + recentDays[recentDays.length-1],
+  };
+}
+
+// Top N longest holds with context — concrete "I can do this" evidence.
+function getPersonalBests(n) {
+  return data.logs
+    .map((l, i) => ({ interval: l.intervalMs, ts: l.timestamp, location: l.location, tags: l.tags || [], urgency: l.urgency, _idx: i }))
+    .filter(x => x.interval && !isExcludedInterval(x._idx))
+    .sort((a, b) => b.interval - a.interval)
+    .slice(0, n);
+}
+
+// Rolling avg across all tracked days (windowDays centered-ish, ending at each day).
+function getRollingAvg(windowDays, maxDays) {
+  const dayMap = {};
+  data.logs.forEach((l, i) => {
+    if (!l.intervalMs || isExcludedInterval(i)) return;
+    const dk = dayKey(l.timestamp);
+    (dayMap[dk] = dayMap[dk] || []).push(l.intervalMs);
+  });
+  const keys = Object.keys(dayMap).sort();
+  if (keys.length < 3) return [];
+  const recent = keys.slice(-maxDays);
+  return recent.map((k, i) => {
+    const startIdx = Math.max(0, i - windowDays + 1);
+    const windowKeys = recent.slice(startIdx, i + 1);
+    const ints = windowKeys.flatMap(wk => dayMap[wk]);
+    return { date: k, avg: ints.reduce((a,b)=>a+b,0) / ints.length };
+  });
+}
+
+// Interval distribution — shows typical hold range, not just average.
+function getIntervalPercentiles() {
+  const vals = data.logs
+    .filter((l, i) => l.intervalMs && !isExcludedInterval(i))
+    .map(l => l.intervalMs)
+    .sort((a, b) => a - b);
+  if (vals.length < 10) return null;
+  const pct = p => vals[Math.min(vals.length - 1, Math.floor(vals.length * p))];
+  return { p25: pct(.25), p50: pct(.50), p75: pct(.75), p90: pct(.90), count: vals.length };
+}
+
+// % of voids that were calm (urgency 0-1). Counters "I'm always in crisis."
+function getLowUrgencyPct() {
+  const withUrg = data.logs.filter(l => l.urgency !== null && l.urgency !== undefined);
+  if (withUrg.length < 10) return null;
+  const low = withUrg.filter(l => l.urgency <= 1).length;
+  return { pct: Math.round(low / withUrg.length * 100), total: withUrg.length, low };
+}
+
+// When urgency was HIGH, what did the NEXT interval end up being?
+// Counters "peak urgency = emergency." Usually next hold is still ~normal length.
+function getUrgencyReality() {
+  const nextIntervals = [];
+  for (let i = 0; i < data.logs.length - 1; i++) {
+    const curr = data.logs[i];
+    const next = data.logs[i + 1];
+    if (curr.urgency !== 2) continue;
+    if (!next.intervalMs || isExcludedInterval(i + 1)) continue;
+    nextIntervals.push(next.intervalMs);
+  }
+  if (nextIntervals.length < 3) return null;
+  return {
+    avgAfterHighUrg: nextIntervals.reduce((a,b)=>a+b,0) / nextIntervals.length,
+    count: nextIntervals.length,
   };
 }
 
@@ -733,9 +882,15 @@ function renderLog(el) {
   const label = elapsed === null ? 'First log' : overnightGap ? 'OVERNIGHT' : pastGoal ? 'GOAL MET' : 'Holding';
   const timerVal = elapsed === null ? '\u2014' : fmtDur(elapsed);
 
-  const todayLogs = getLogsForDay(today());
-  const todayIntervals = todayLogs.filter(l => l.intervalMs);
-  const avgToday = todayIntervals.length ? todayIntervals.reduce((s,l)=>s+l.intervalMs,0)/todayIntervals.length : null;
+  const todayDk = today();
+  const todayLogs = getLogsForDay(todayDk);
+  const todayIntervals = [];
+  data.logs.forEach((l, i) => {
+    if (dayKey(l.timestamp) === todayDk && l.intervalMs && !isExcludedInterval(i)) {
+      todayIntervals.push(l.intervalMs);
+    }
+  });
+  const avgToday = todayIntervals.length ? todayIntervals.reduce((a,b)=>a+b,0)/todayIntervals.length : null;
 
   const isCustomTime = customTime !== '';
   const customTs = isCustomTime ? timeStringToTimestamp(customTime) : null;
@@ -882,6 +1037,146 @@ function renderStats(el) {
   const h = [];
   h.push('<div class="scroll-stats">');
   h.push('<div class="header"><div class="subtitle">Statistics</div></div>');
+
+  // ─────────────────────────────────────────────
+  // REALITY CHECK — anxiety-disproving evidence
+  // ─────────────────────────────────────────────
+  h.push('<div class="rc-card">');
+  h.push('<div class="rc-title">\ud83e\udde0 Reality Check</div>');
+  h.push('<div class="rc-sub">What your actual data says \u2014 not what the anxiety says.</div>');
+
+  // 1. Then vs Now
+  const fvr = getFirstVsRecent();
+  if (fvr && fvr.firstAvg !== undefined) {
+    const up = fvr.deltaMin > 0, down = fvr.deltaMin < 0;
+    const color = up ? 'var(--green)' : down ? 'var(--red)' : 'var(--text2)';
+    const arrow = up ? '\u2191' : down ? '\u2193' : '\u2192';
+    const sign = up ? '+' : '';
+    h.push(`<div class="rc-panel">
+      <div class="rc-panel-lbl">Then vs Now</div>
+      <div class="rc-then-now">
+        <div class="rc-tn-col">
+          <div class="rc-tn-lbl">First week</div>
+          <div class="rc-tn-val" style="color:var(--text2)">${fmtDurShort(fvr.firstAvg)}</div>
+        </div>
+        <div class="rc-tn-arrow">\u2192</div>
+        <div class="rc-tn-col">
+          <div class="rc-tn-lbl">Latest week</div>
+          <div class="rc-tn-val" style="color:${color}">${fmtDurShort(fvr.recentAvg)}</div>
+        </div>
+      </div>
+      <div class="rc-tn-delta" style="color:${color}">${arrow} ${sign}${fvr.deltaMin} min per void (${sign}${fvr.deltaPct}%)</div>
+      <div class="rc-tn-foot">${fvr.daysTracked} days tracked \u00b7 your bladder is ${up?'measurably stronger':down?'retraining \u2014 keep going':'holding steady'}</div>
+    </div>`);
+  } else {
+    const days = fvr ? fvr.daysTracked : 0;
+    const needed = fvr ? fvr.needed : 10;
+    h.push(`<div class="rc-panel rc-empty">
+      <div class="rc-empty-icon">\u23f3</div>
+      <div class="rc-empty-txt">Keep logging. In <strong>${needed} more day${needed!==1?'s':''}</strong> I'll show you side-by-side proof that your bladder is getting stronger.<br><span style="color:var(--text4);font-size:10px">${days}/10 days logged</span></div>
+    </div>`);
+  }
+
+  // 2. Rolling trend line (SVG)
+  const rolling = getRollingAvg(7, 60);
+  if (rolling.length >= 5) {
+    const W = 320, H = 80, PAD = 4;
+    const maxV = Math.max(...rolling.map(r => r.avg), goalMs);
+    const minV = Math.min(...rolling.map(r => r.avg));
+    const range = Math.max(maxV - minV, 60000);
+    const xStep = (W - PAD * 2) / (rolling.length - 1);
+    const yFor = v => PAD + (H - PAD * 2) * (1 - (v - minV) / range);
+    const pts = rolling.map((r, i) => `${PAD + i * xStep},${yFor(r.avg)}`).join(' ');
+    const goalY = yFor(Math.min(Math.max(goalMs, minV), maxV));
+    const lastAvg = rolling[rolling.length - 1].avg;
+    const firstAvg = rolling[0].avg;
+    const trendColor = lastAvg > firstAvg ? 'var(--green)' : 'var(--accent2)';
+    h.push(`<div class="rc-panel">
+      <div class="rc-trend-hd">
+        <span class="lbl">7-day rolling average</span>
+        <span class="val" style="color:${trendColor}">${fmtDurShort(lastAvg)}</span>
+      </div>
+      <svg class="rc-trend" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        ${goalMs >= minV && goalMs <= maxV ? `<line x1="${PAD}" y1="${goalY}" x2="${W-PAD}" y2="${goalY}" stroke="var(--green)" stroke-width="1" stroke-dasharray="3,3" opacity=".4"/>` : ''}
+        <polyline points="${pts}" fill="none" stroke="${trendColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${PAD + (rolling.length-1) * xStep}" cy="${yFor(lastAvg)}" r="3" fill="${trendColor}"/>
+      </svg>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text4);margin-top:4px">
+        <span>${fmtDate(new Date(rolling[0].date+'T12:00:00').getTime())}</span>
+        <span>${goalMs >= minV && goalMs <= maxV ? '--- goal ('+data.goalMinutes+'m)' : ''}</span>
+        <span>${fmtDate(new Date(rolling[rolling.length-1].date+'T12:00:00').getTime())}</span>
+      </div>
+    </div>`);
+  }
+
+  // 3. Personal bests (top 3 longest holds)
+  const bests = getPersonalBests(3);
+  if (bests.length >= 1) {
+    h.push('<div class="rc-panel"><div class="rc-panel-lbl">Your longest holds \u2014 you already did this</div>');
+    bests.forEach((b, i) => {
+      const rankIcon = ['\ud83e\udd47','\ud83e\udd48','\ud83e\udd49'][i] || '\u2022';
+      const locStr = b.location === 'out' ? '\ud83d\udeb6 out' : b.location === 'home' ? '\ud83c\udfe0 home' : '';
+      const tagStr = (b.tags || []).filter(t => t !== 'sleep').map(t => TAG_ICONS[t] || t).join(' ');
+      const ctxParts = [fmtDateFull(b.ts), locStr, tagStr].filter(x => x).join(' \u00b7 ');
+      h.push(`<div class="rc-pb">
+        <div class="rc-pb-rank">${rankIcon}</div>
+        <div class="rc-pb-main">
+          <div class="rc-pb-dur">${fmtDurShort(b.interval)}</div>
+          <div class="rc-pb-ctx">${ctxParts}</div>
+        </div>
+      </div>`);
+    });
+    h.push('</div>');
+  }
+
+  // 4. Anxiety vs data facts
+  const facts = [];
+  const pct = getIntervalPercentiles();
+  if (pct) {
+    facts.push({
+      lbl: 'Your typical hold range (middle 50% of voids)',
+      val: fmtDurShort(pct.p25) + ' \u2013 ' + fmtDurShort(pct.p75),
+      good: pct.p50 >= goalMs,
+    });
+  }
+  const lowU = getLowUrgencyPct();
+  if (lowU) {
+    facts.push({
+      lbl: 'Voids that were calm (urgency 0\u20131)',
+      val: lowU.pct + '%',
+      good: lowU.pct >= 50,
+    });
+  }
+  const locCheck = getLocationComparison();
+  if (locCheck) {
+    const deltaMin = Math.round((locCheck.homeAvg - locCheck.outAvg) / 60000);
+    const label = deltaMin <= 10 ? 'Out vs home: barely a difference' : 'Out holds are ' + deltaMin + ' min shorter than home';
+    facts.push({
+      lbl: label,
+      val: deltaMin <= 0 ? 'out \u2265 home' : deltaMin <= 15 ? 'minor' : 'notable',
+      good: deltaMin <= 15,
+    });
+  }
+  const urgR = getUrgencyReality();
+  if (urgR) {
+    facts.push({
+      lbl: 'Avg hold AFTER a peak-urgency void (anxiety says: short. reality:)',
+      val: fmtDurShort(urgR.avgAfterHighUrg),
+      good: urgR.avgAfterHighUrg >= goalMs * 0.7,
+    });
+  }
+  if (facts.length) {
+    h.push('<div class="rc-panel"><div class="rc-panel-lbl">Anxiety vs. your data</div>');
+    facts.forEach(f => {
+      h.push(`<div class="rc-fact">
+        <div class="rc-fact-lbl">${f.lbl}</div>
+        <div class="rc-fact-val ${f.good?'':'neutral'}">${f.val}</div>
+      </div>`);
+    });
+    h.push('</div>');
+  }
+
+  h.push('</div>'); // end rc-card
 
   // All Time
   h.push(`<div class="card"><div class="card-title">\ud83d\udcca All Time</div>
@@ -1126,6 +1421,17 @@ function renderSettings(el) {
     <div class="section">
       <button class="action-btn" style="border-color:var(--accent);color:var(--accent)" onclick="switchView('protocol')">View Protocol Guide</button>
     </div>
+    <div class="section">
+      <div class="section-label">Reminders</div>
+      <button class="action-btn" style="border-color:${data.remindersEnabled?'var(--green)':'var(--border)'};color:${data.remindersEnabled?'var(--green)':'var(--text2)'}" onclick="toggleReminders()">
+        ${data.remindersEnabled ? '\u2705 Reminders ON' : 'Enable reminders'}
+      </button>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px;line-height:1.4">
+        ${data.remindersEnabled
+          ? 'You\u2019ll get a notification every 30 min when you\u2019re past your goal interval. Only fires when the app is in the background.'
+          : 'Get nudged when you probably forgot to log. Sends a notification when you\u2019re past your goal interval.'}
+      </div>
+    </div>
     <div class="section" style="margin-top:24px">
       <div class="section-label">Data management</div>
       <button class="action-btn" style="border-color:var(--green);color:var(--green)" onclick="doExport()">Export Backup (JSON)</button>
@@ -1367,8 +1673,64 @@ function doImport() {
 
 function doReset() {
   if (confirm('Delete ALL data? Cannot be undone.')) {
-    data = { logs:[], goalMinutes:60, phase:1, waterLogs:[], waves:[], milestones:{}, waterGoalMl:2000 };
-    save(); render();
+    data = { logs:[], goalMinutes:60, phase:1, waterLogs:[], waves:[], milestones:{}, waterGoalMl:2000, remindersEnabled:false };
+    stopReminders(); save(); render();
+  }
+}
+
+// ══════════════════════════════════════════════
+// REMINDERS
+// ══════════════════════════════════════════════
+function startReminders() {
+  if (reminderInterval) return;
+  if ('Notification' in window) Notification.requestPermission();
+  reminderInterval = setInterval(checkReminder, 120000); // check every 2 min
+}
+
+function stopReminders() {
+  if (reminderInterval) clearInterval(reminderInterval);
+  reminderInterval = null;
+}
+
+function checkReminder() {
+  if (!data.remindersEnabled) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (document.visibilityState === 'visible') return; // don't nag while they're looking at the app
+
+  const last = data.logs.length ? data.logs[data.logs.length-1] : null;
+  if (!last) return;
+
+  const elapsed = Date.now() - last.timestamp;
+  const goalMs = data.goalMinutes * 60000;
+
+  // Only remind after goal exceeded, max once per 30 min
+  if (elapsed <= goalMs) { lastNotifTime = 0; return; }
+  if (Date.now() - lastNotifTime < 30 * 60000) return;
+
+  new Notification('VOID', {
+    body: 'Been ' + fmtDurShort(elapsed) + ' since last log. Did you go?',
+    tag: 'void-reminder',
+    renotify: true,
+  });
+  lastNotifTime = Date.now();
+}
+
+function toggleReminders() {
+  if (!data.remindersEnabled) {
+    if (!('Notification' in window)) { alert('Notifications not supported in this browser.'); return; }
+    Notification.requestPermission().then(function(perm) {
+      if (perm === 'granted') {
+        data.remindersEnabled = true;
+        save(); startReminders(); render();
+        showToast('Reminders enabled');
+      } else {
+        alert('Please allow notifications in your browser settings for this site.');
+      }
+    });
+  } else {
+    data.remindersEnabled = false;
+    save(); stopReminders(); render();
+    showToast('Reminders disabled');
   }
 }
 
@@ -1378,6 +1740,7 @@ function doReset() {
 load();
 render();
 timerInterval = setInterval(() => { if (currentView === 'log') updateTimer(); }, 1000);
+if (data.remindersEnabled) startReminders();
 
 // Service Worker (inline, offline support, network-first so updates land immediately)
 if ('serviceWorker' in navigator) {
